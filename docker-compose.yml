@@ -1,0 +1,128 @@
+# TerraBean — Phase 0 walking skeleton.
+# `cp .env.example .env` then `docker compose up --build`.
+# Core services prove web -> API -> worker -> data stores end-to-end. TiTiler is behind
+# the "tiles" profile (no real COG exists until the data spike pushes one to MinIO):
+#   docker compose --profile tiles up
+# Keycloak/observability/edge-proxy are deferred to Phase 4 (see docs/04-architecture.md).
+
+services:
+  postgis:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infra/postgis/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  minio:
+    image: minio/minio:latest # TODO: pin to a dated RELEASE.* tag once confirmed
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - miniodata:/data
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      - minio
+    environment:
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_BUCKET: ${MINIO_BUCKET}
+    entrypoint: ["/bin/sh", "/scripts/init-bucket.sh"]
+    volumes:
+      - ./infra/minio/init-bucket.sh:/scripts/init-bucket.sh:ro
+    restart: "no"
+
+  api:
+    build:
+      context: ./backend
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    volumes:
+      # Config mounted read-only so the live thresholds are inspectable (NFR-14).
+      - ./config:/config:ro
+    depends_on:
+      postgis:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  worker:
+    build:
+      context: ./backend
+    command: celery -A worker.celery_app worker -l info
+    env_file:
+      - .env
+    volumes:
+      - ./config:/config:ro
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A worker.celery_app inspect ping -d celery@$$HOSTNAME || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 6
+
+  web:
+    build:
+      context: ./frontend
+    environment:
+      VITE_API_BASE: ${VITE_API_BASE}
+    ports:
+      - "5173:5173"
+    depends_on:
+      api:
+        condition: service_healthy
+
+  titiler:
+    image: ghcr.io/developmentseed/titiler:latest
+    profiles: ["tiles"]
+    environment:
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+      AWS_S3_ENDPOINT: ${MINIO_ENDPOINT}
+      AWS_VIRTUAL_HOSTING: "FALSE"
+    ports:
+      - "8001:8000"
+    depends_on:
+      - minio
+
+volumes:
+  pgdata:
+  miniodata:

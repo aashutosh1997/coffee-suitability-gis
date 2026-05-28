@@ -1,0 +1,23 @@
+# Local-dev overrides (auto-merged by `docker compose`). Bind-mount source for live
+# reload so you don't rebuild on every edit. Do NOT use this file in production.
+
+services:
+  api:
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - ./config:/config:ro
+      - ./backend/app:/app/app
+      - ./backend/worker:/app/worker
+
+  worker:
+    command: celery -A worker.celery_app worker -l info
+    volumes:
+      - ./config:/config:ro
+      - ./backend/app:/app/app
+      - ./backend/worker:/app/worker
+
+  web:
+    command: npm run dev -- --host 0.0.0.0 --port 5173
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/index.html:/app/index.html
