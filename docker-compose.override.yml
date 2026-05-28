@@ -8,6 +8,7 @@ services:
       - ./config:/config:ro
       - ./backend/app:/app/app
       - ./backend/worker:/app/worker
+      - ./backend/geo:/app/geo
 
   worker:
     command: celery -A worker.celery_app worker -l info
@@ -15,6 +16,7 @@ services:
       - ./config:/config:ro
       - ./backend/app:/app/app
       - ./backend/worker:/app/worker
+      - ./backend/geo:/app/geo
 
   web:
     command: npm run dev -- --host 0.0.0.0 --port 5173

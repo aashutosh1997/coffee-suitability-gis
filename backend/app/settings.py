@@ -14,6 +14,14 @@ class Settings(BaseSettings):
 
     minio_endpoint: str = "http://localhost:9000"
     minio_bucket: str = "terrabean-cogs"
+    minio_root_user: str = "terrabean"
+    minio_root_password: str = "change-me-locally"
+
+    # DEM dataset name the engine resolves against dataset_provenance (FR-15).
+    dem_dataset_name: str = "copernicus-glo30"
+    # When set, cog_reader reads this local COG instead of MinIO + PostGIS provenance.
+    # Used by tests and offline dev so geoprocessing runs without the stack.
+    cog_local_dir: str | None = None
 
     # Phase 0 runs without Keycloak; auth bypass must be false once SSO lands (Phase 4).
     dev_auth_bypass: bool = True

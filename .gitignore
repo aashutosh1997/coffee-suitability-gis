@@ -36,10 +36,11 @@ frontend/dist/
 .vite/
 *.local
 
-# --- Editors / OS ---
+# --- Editors / OS / tooling ---
 .idea/
 .vscode/
 .DS_Store
+.claude/
 
 # --- Logs ---
 *.log

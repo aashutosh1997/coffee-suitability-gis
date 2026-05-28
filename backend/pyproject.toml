@@ -16,10 +16,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# Heavy geospatial stack — only needed for the geoprocessing library / terrain spike,
-# NOT for the API or worker in Phase 0 (the scoring engine is a stub). Installed in the
-# GDAL-based image and the data-pipelines env. numpy pinned <2 until the geo stack
-# confirms numpy-2 compatibility (see docs/phase-0/risk-register.md).
+# Geospatial stack for the real scoring engine + terrain spike. From Phase 1 the API and
+# worker depend on this at runtime (they read COGs and derive terrain). numpy pinned <2
+# until the geo stack confirms numpy-2 compatibility (see docs/phase-0/risk-register.md).
 geo = [
     "numpy<2",
     "rasterio>=1.3,<2",
