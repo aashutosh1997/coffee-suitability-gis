@@ -62,3 +62,27 @@ def test_polygon_engine_scores_real_terrain():
     assert factors["slope"].raw_value is not None
     assert response.overall.class_ in {"S1", "S2", "S3", "N"}
     assert factors["temperature"].band == "not_assessed"
+
+
+def test_tiny_polygon_falls_back_to_centroid():
+    # A sub-grid polygon clips to too few pixels for a gradient; must not crash.
+    from app.suitability.config_loader import load_config
+    from app.suitability.engine import assess_polygon_geometry
+    from tests.conftest import CONFIG_PATH
+
+    tiny = {
+        "type": "Polygon",
+        "coordinates": [
+            [
+                [83.8900, 28.0700],
+                [83.8901, 28.0700],
+                [83.8901, 28.0701],
+                [83.8900, 28.0701],
+                [83.8900, 28.0700],
+            ]
+        ],
+    }
+    response = assess_polygon_geometry(tiny, load_config(CONFIG_PATH))
+    factors = {f.name: f for f in response.factors}
+    assert factors["altitude"].raw_value is not None
+    assert any("centroid" in note for note in response.uncertainty_notes)

@@ -19,13 +19,18 @@ export default function App() {
   const [geometry, setGeometry] = useState<Geometry | null>(null);
   const [jobId, setJobId] = useState<string | null>(null);
   const [result, setResult] = useState<AssessResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const assess = useAssess();
   const job = useAssessJob(jobId);
 
   useEffect(() => {
-    if (job.data?.status === "SUCCESS" && job.data.result) {
+    if (!job.data) return;
+    if (job.data.status === "SUCCESS" && job.data.result) {
       setResult(job.data.result);
+      setJobId(null);
+    } else if (job.data.status === "FAILURE") {
+      setError("Assessment failed for this area. Try a different or larger area.");
       setJobId(null);
     }
   }, [job.data]);
@@ -34,10 +39,12 @@ export default function App() {
 
   const runAssessment = () => {
     if (!geometry) return;
+    setError(null);
     setResult(null);
     setJobId(null);
     assess.mutate(geometry, {
       onSuccess: (r) => (isJob(r) ? setJobId(r.job_id) : setResult(r)),
+      onError: (e) => setError(e.message),
     });
   };
 
@@ -84,7 +91,7 @@ export default function App() {
             <Title order={5} mb="sm">
               Result
             </Title>
-            <ResultPanel result={result} loading={busy} />
+            <ResultPanel result={result} loading={busy} error={error} />
           </Paper>
         </Box>
       </AppShell.Main>

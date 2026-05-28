@@ -1,4 +1,4 @@
-import { Badge, Group, List, Loader, Stack, Table, Text } from "@mantine/core";
+import { Alert, Badge, Group, List, Loader, Stack, Table, Text } from "@mantine/core";
 
 import type { AssessResponse } from "../api/client";
 
@@ -19,9 +19,17 @@ const CLASS_LABEL: Record<string, string> = {
 interface Props {
   result: AssessResponse | null;
   loading: boolean;
+  error?: string | null;
 }
 
-export function ResultPanel({ result, loading }: Props) {
+export function ResultPanel({ result, loading, error }: Props) {
+  if (error) {
+    return (
+      <Alert color="red" title="Could not assess this area">
+        {error}
+      </Alert>
+    );
+  }
   if (loading) {
     return (
       <Group gap="xs">

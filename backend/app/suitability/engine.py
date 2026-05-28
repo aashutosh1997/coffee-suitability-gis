@@ -87,6 +87,25 @@ def assess_polygon_geometry(
     geometry: dict[str, Any], config: SuitabilityConfig
 ) -> AssessResponse:
     src = cog_reader.clip_polygon(geometry)
+
+    # A polygon smaller than ~3 DEM cells (~90 m) clips to too few pixels for a stable
+    # slope gradient. Fall back to assessing its centroid as a point, and say so.
+    if min(src.array.shape) < 3:
+        from shapely.geometry import shape
+
+        centroid = shape(geometry).centroid
+        point_src = cog_reader.sample_point(centroid.x, centroid.y, neighborhood=1)
+        altitude, slope, aspect = _terrain_at_center(
+            point_src.array, point_src.xres_m, point_src.yres_m
+        )
+        note = (
+            "Plot is smaller than the ~30 m DEM cell; assessed at its centroid. "
+            "Draw a larger area for plot-wide terrain statistics."
+        )
+        return _build_response(
+            geometry, config, altitude, slope, aspect, point_src.provenance, [note]
+        )
+
     fill = float(np.nanmean(src.array)) if np.isfinite(src.array).any() else 0.0
     filled = np.nan_to_num(src.array, nan=fill)
     slope_pct, aspect_deg = terrain.slope_aspect(filled, src.xres_m, src.yres_m)
