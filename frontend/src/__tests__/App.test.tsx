@@ -1,12 +1,21 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-// maplibre-gl needs WebGL, which jsdom lacks — mock it for the render test.
+import { renderWithProviders } from "../test-utils";
+
+// maplibre-gl needs WebGL (absent in jsdom) — mock it.
 vi.mock("maplibre-gl", () => ({
   default: {
-    Map: vi.fn(() => ({ remove: vi.fn(), addControl: vi.fn() })),
-    Marker: vi.fn(() => ({ setLngLat: () => ({ addTo: vi.fn() }) })),
+    Map: vi.fn(() => ({
+      on: vi.fn(),
+      off: vi.fn(),
+      remove: vi.fn(),
+      addControl: vi.fn(),
+    })),
+    Marker: vi.fn(() => ({
+      setLngLat: () => ({ addTo: vi.fn() }),
+      remove: vi.fn(),
+    })),
   },
 }));
 
@@ -18,12 +27,7 @@ describe("App", () => {
       "fetch",
       vi.fn().mockResolvedValue({ ok: true, json: async () => ({ status: "ok" }) }),
     );
-    const qc = new QueryClient();
-    render(
-      <QueryClientProvider client={qc}>
-        <App />
-      </QueryClientProvider>,
-    );
+    renderWithProviders(<App />);
     expect(screen.getByText(/TerraBean/i)).toBeInTheDocument();
     expect(screen.getByTestId("pilot-map")).toBeInTheDocument();
   });
