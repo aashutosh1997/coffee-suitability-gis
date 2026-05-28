@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://terrabean.coop/schemas/suitability-config.json",
+  "title": "TerraBean Arabica suitability configuration",
+  "description": "Editor-validation mirror of the Pydantic SuitabilityConfig model. The backend (backend/app/schemas/config.py) is the source of truth; keep this in sync.",
+  "type": "object",
+  "required": ["model_config_version", "class_thresholds", "factors"],
+  "additionalProperties": true,
+  "properties": {
+    "model_config_version": {
+      "type": "string",
+      "description": "Reproducibility key (NFR-16). Bump on every threshold/weight change.",
+      "pattern": "^[0-9]{4}\\.[0-9]+$"
+    },
+    "region": { "type": "string" },
+    "based_on": { "type": "string" },
+    "status": { "type": "string" },
+    "class_thresholds": {
+      "type": "object",
+      "required": ["S1", "S2", "S3"],
+      "properties": {
+        "S1": { "type": "number", "minimum": 0, "maximum": 1 },
+        "S2": { "type": "number", "minimum": 0, "maximum": 1 },
+        "S3": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "rainfall_distribution_modifier": {
+      "type": "object",
+      "properties": {
+        "dry_period_months_min": { "type": "number" },
+        "dry_period_months_max": { "type": "number" },
+        "bonus": { "type": "number" },
+        "aseasonal_penalty": { "type": "number" }
+      }
+    },
+    "factors": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "kind", "weight", "bands"],
+        "properties": {
+          "name": { "type": "string" },
+          "kind": { "type": "string", "enum": ["numeric", "categorical"] },
+          "unit": { "type": ["string", "null"] },
+          "weight": { "type": "number", "minimum": 0, "maximum": 1 },
+          "bands": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["label", "sub_score"],
+              "properties": {
+                "label": { "type": "string" },
+                "min": { "type": ["number", "null"] },
+                "max": { "type": ["number", "null"] },
+                "condition": { "type": ["string", "null"] },
+                "sub_score": { "type": "number", "minimum": 0, "maximum": 1 },
+                "hard_limit": { "type": "boolean" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

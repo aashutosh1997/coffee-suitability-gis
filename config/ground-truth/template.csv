@@ -1,0 +1,8 @@
+plot_id,latitude,longitude,district,elevation_m_observed,observed_status,cultivar,planting_year,notes,labelled_by,label_date
+# SYNTHETIC EXAMPLES ONLY — replace with real co-op-supplied plots before validation (see docs/phase-0/ground-truth-plan.md).
+# observed_status must be one of: thriving | struggling | failed
+GT-EX-001,28.0721,83.8910,Gulmi,1320,thriving,Bourbon,2016,SYNTHETIC example - mid-altitude shaded slope,A.Agronomist,2026-05-28
+GT-EX-002,27.9450,83.7600,Syangja,1580,thriving,Typica,2014,SYNTHETIC example - upper good band,A.Agronomist,2026-05-28
+GT-EX-003,27.6200,85.5400,Kavre,1180,struggling,Catimor,2018,SYNTHETIC example - irregular rainfall reported,A.Agronomist,2026-05-28
+GT-EX-004,28.1500,83.9200,Gulmi,720,struggling,Bourbon,2019,SYNTHETIC example - low altitude marginal band,A.Agronomist,2026-05-28
+GT-EX-005,27.5800,85.6100,Kavre,2010,failed,Typica,2017,SYNTHETIC example - above viable altitude / frost-prone,A.Agronomist,2026-05-28
