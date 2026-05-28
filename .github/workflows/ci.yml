@@ -1,0 +1,117 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-lint-type:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install uv
+      - run: uv sync --frozen --extra dev
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run mypy app worker
+
+  backend-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgis:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: terrabean
+          POSTGRES_PASSWORD: terrabean
+          POSTGRES_DB: terrabean
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U terrabean"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      DATABASE_URL: postgresql+psycopg://terrabean:terrabean@localhost:5432/terrabean
+      REDIS_URL: redis://localhost:6379/0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install uv
+      - run: uv sync --frozen --extra dev
+      # Core suite. The terrain-spike test importorskips the geo stack (run in geo-spike).
+      - run: uv run pytest
+
+  geo-spike:
+    # Exercises the heavy geospatial stack: terrain spike + COG conversion on the fixture.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install uv
+      - name: Backend terrain spike
+        working-directory: backend
+        run: |
+          uv sync --frozen --extra dev --extra geo
+          uv run pytest tests/test_terrain_spike.py -q
+      - name: Data-pipelines COG conversion
+        working-directory: data-pipelines
+        run: |
+          uv sync --frozen --extra dev
+          uv run pytest -q
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npx prettier --check "src/**/*.{ts,tsx}"
+      - run: npx tsc --noEmit
+      - run: npm run test
+
+  docker-build:
+    runs-on: ubuntu-latest
+    needs: [backend-lint-type, frontend]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build API/worker image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          push: false
+      - name: Build web image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          push: false
