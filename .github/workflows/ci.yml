@@ -57,29 +57,24 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install uv
-      - run: uv sync --frozen --extra dev
-      # Core suite. The terrain-spike test importorskips the geo stack (run in geo-spike).
+      # The engine now uses the geo stack at runtime, so the test suite needs it.
+      - run: uv sync --frozen --extra dev --extra geo
       - run: uv run pytest
 
-  geo-spike:
-    # Exercises the heavy geospatial stack: terrain spike + COG conversion on the fixture.
+  data-pipelines:
+    # Exercises the ingestion geo stack: COG conversion + region-COG build on the fixture.
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: data-pipelines
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       - run: pip install uv
-      - name: Backend terrain spike
-        working-directory: backend
-        run: |
-          uv sync --frozen --extra dev --extra geo
-          uv run pytest tests/test_terrain_spike.py -q
-      - name: Data-pipelines COG conversion
-        working-directory: data-pipelines
-        run: |
-          uv sync --frozen --extra dev
-          uv run pytest -q
+      - run: uv sync --frozen --extra dev
+      - run: uv run pytest
 
   frontend:
     runs-on: ubuntu-latest
