@@ -1,0 +1,45 @@
+# --- Secrets & env ---
+.env
+.env.*
+!.env.example
+
+# --- Large geospatial data (NEVER commit; lives in MinIO/object storage) ---
+*.tif
+*.tiff
+*.nc
+*.hgt
+*.vrt
+*.img
+# ...but DO allow the small clipped test fixtures the suite depends on
+!backend/tests/fixtures/**/*.tif
+!backend/tests/fixtures/**/*.tiff
+data/
+tmp/
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+dist/
+build/
+
+# --- Node / frontend ---
+node_modules/
+frontend/dist/
+.vite/
+*.local
+
+# --- Editors / OS ---
+.idea/
+.vscode/
+.DS_Store
+
+# --- Logs ---
+*.log

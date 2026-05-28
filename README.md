@@ -6,9 +6,11 @@ For a given location it derives **altitude, slope, aspect, terrain/canopy shadin
 temperature, and rainfall** from open geospatial datasets, scores them against
 agronomic thresholds, and returns a transparent, explainable suitability rating.
 
-> **Status:** Design / pre-implementation. This repository currently contains the
-> planning artifacts (vision, requirements, architecture, data sources, roadmap,
-> team plan). Code directories are scaffolded and ready for implementation to begin.
+> **Status:** Phase 0 — Discovery & Foundations. The planning artifacts (vision,
+> requirements, architecture, data sources, roadmap, team plan) live in `docs/`, and
+> Phase 0 deliverables — the calibrated suitability config, the decision records, the
+> discovery/spike reports, and a runnable "walking skeleton" — are landing now. See
+> [docs/phase-0/](docs/phase-0/) for the Phase 0 outputs and exit-criteria status.
 
 ---
 
