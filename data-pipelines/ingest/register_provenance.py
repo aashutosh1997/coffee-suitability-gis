@@ -45,8 +45,8 @@ def register(
               (dataset_name, source, resolution, crs, retrieved_at, version,
                object_key, extent, checksum)
             VALUES (%s, %s, %s, %s, %s, %s, %s,
-                    CASE WHEN %s IS NULL THEN NULL
-                         ELSE ST_GeomFromText(%s, 4326) END,
+                    CASE WHEN %s::text IS NULL THEN NULL
+                         ELSE ST_GeomFromText(%s::text, 4326) END,
                     %s)
             """,
             (
