@@ -27,3 +27,14 @@ and formally re-scored at the W4 exit gate; thereafter the register is reviewed 
 phase boundary, with new risks added, closed risks retired, and likelihood/impact
 re-rated as spikes and validation produce evidence. The Delivery/PM owns the register;
 each risk's role owner drives its mitigation.
+
+## Phase 1 additions (Core Geospatial MVP)
+
+| ID | Risk | Likelihood | Impact | Mitigation | Owner (role) |
+|----|------|:----------:|:------:|------------|--------------|
+| **R-VSIS3** | GDAL `/vsis3` MinIO config is fiddly (path-style vs virtual-host, http vs https, endpoint scheme) — easy to get a silent 403/404 on COG open. | M | M | `cog_reader` builds the env from settings (scheme stripped, `AWS_VIRTUAL_HOSTING=FALSE`, `AWS_HTTPS=NO`), mirroring the TiTiler service; a local-file fallback keeps dev/CI independent of MinIO. | DevOps/Platform |
+| **R-PTSLOPE** | A point has no neighbours, so slope/aspect would be meaningless from a single pixel. | M | M | `sample_point` reads a 3x3 window and derives slope on the neighbourhood, taking the centre; edge pixels degrade gracefully. | GIS Specialist |
+| **R-GEOIMG** | Moving the geo stack into the slim api/worker image could break if any wheel lacks a manylinux build. | L | M | rasterio/geopandas ship manylinux wheels (bundled GDAL); CI `docker-build` smoke-builds the image; documented fallback is the `ghcr.io/osgeo/gdal` base. | DevOps/Platform |
+| **R-TILEDL** | Copernicus GLO-30 tiles (~30-50 MB each, up to ~6 for the pilot) are slow or blocked. | M | L | Seed only district-intersecting tiles; per-tile automatic fixture fallback; real fetch never runs in CI. | Data Engineer |
+| **R-POLYMEAN** | Polygon scored on the zonal mean hides intra-plot variation (a half-optimal/half-unsuitable plot averages to "good"). | H | M | Accepted for the MVP and flagged in `uncertainty_notes`; per-pixel class distribution is the Phase 2/3 upgrade. | GIS Specialist |
+| **R-EXTENT** | If seeding registers provenance without a real `extent`, the AOI->DEM `ST_Intersects` lookup returns nothing and every assessment 422s. | M | H | `seed_pilot` computes `extent_wkt` from the produced COG bounds (reprojected to 4326) and always registers it; verified by the seed flow. | Data Engineer |
