@@ -1,0 +1,21 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": { "name": "Gulmi test plot (synthetic)", "district": "Gulmi" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [83.875, 28.055],
+            [83.905, 28.055],
+            [83.905, 28.085],
+            [83.875, 28.085],
+            [83.875, 28.055]
+          ]
+        ]
+      }
+    }
+  ]
+}
