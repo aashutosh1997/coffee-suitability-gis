@@ -1,10 +1,11 @@
 """Assessment endpoints.
 
 Fast path (point) is synchronous; heavy path (polygon) is enqueued to a Celery worker
-so the API stays responsive (NFR-1/NFR-3). Phase 0 scoring is a stub (see engine.py).
+so the API stays responsive (NFR-1/NFR-3). AOIs outside the ingested pilot region return
+422 (FR-3).
 """
 
-from fastapi import APIRouter, Response, status
+from fastapi import APIRouter, HTTPException, Response, status
 
 from app.schemas.assess import (
     AssessRequest,
@@ -13,7 +14,8 @@ from app.schemas.assess import (
     JobStatus,
 )
 from app.suitability.config_loader import load_config
-from app.suitability.engine import assess_stub
+from app.suitability.engine import assess_point
+from geo.cog_reader import DemNotFound
 
 router = APIRouter(tags=["assess"])
 
@@ -24,6 +26,13 @@ def assess(req: AssessRequest, response: Response) -> AssessResponse | JobAccept
     config = load_config()
 
     if geometry.get("type") == "Polygon":
+        # Reject out-of-region AOIs before enqueuing a doomed job (FR-3).
+        try:
+            from geo import cog_reader
+
+            cog_reader.resolve_dem(geometry)
+        except DemNotFound as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
         # Heavy path: enqueue and return 202 (NFR-3). If the broker is unreachable
         # (e.g. local dev without Redis), still return 202 with a sentinel id.
         job_id = "stub-unavailable"
@@ -37,7 +46,10 @@ def assess(req: AssessRequest, response: Response) -> AssessResponse | JobAccept
         return JobAccepted(job_id=job_id)
 
     # Fast path: point assessment, synchronous.
-    return assess_stub(geometry, config)
+    try:
+        return assess_point(geometry, config)
+    except DemNotFound as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.get("/assess/{job_id}")
