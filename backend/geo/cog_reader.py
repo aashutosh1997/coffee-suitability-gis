@@ -43,12 +43,20 @@ class DemSource:
 # --- mode helpers ---------------------------------------------------------------
 
 
-def _local_file() -> str | None:
-    """Resolve the local COG path from settings.cog_local_dir (file or directory)."""
+def _local_file(dataset_name: str | None = None) -> str | None:
+    """Resolve a local COG path from settings.cog_local_dir (file or directory).
+
+    In a directory, a dataset is `{dir}/{dataset_name}.tif`; the first `.tif` is the
+    legacy fallback for single-fixture dirs.
+    """
     target = settings.cog_local_dir
     if not target:
         return None
     if os.path.isdir(target):
+        if dataset_name:
+            named = os.path.join(target, f"{dataset_name}.tif")
+            if os.path.exists(named):
+                return named
         tifs = sorted(f for f in os.listdir(target) if f.endswith(".tif"))
         if not tifs:
             return None
@@ -79,15 +87,22 @@ def _dsn() -> str:
 # --- provenance resolution ------------------------------------------------------
 
 
-def resolve_dem(geometry: dict[str, Any]) -> dict[str, Any]:
-    """Provenance row for the COG covering the AOI, or a static dict in local mode."""
-    if _local_file():
+def resolve_dataset(
+    geometry: dict[str, Any], dataset_name: str | None = None
+) -> dict[str, Any]:
+    """Provenance for the COG of `dataset_name` covering the AOI (DEM by default).
+
+    Local mode returns a static dict for the fixture; remote mode looks it up in PostGIS
+    by name + ST_Intersects.
+    """
+    name = dataset_name or settings.dem_dataset_name
+    if _local_file(name):
         return {
-            "dataset": settings.dem_dataset_name,
+            "dataset": name,
             "source": "local fixture",
-            "resolution": "~30 m (synthetic fixture)",
+            "resolution": "local fixture",
             "retrieved": str(date.today()),
-            "object_key": _local_file(),
+            "object_key": _local_file(name),
             "version": "fixture",
         }
 
@@ -103,16 +118,16 @@ def resolve_dem(geometry: dict[str, Any]) -> dict[str, Any]:
             ORDER BY retrieved_at DESC
             LIMIT 1
             """,
-            (settings.dem_dataset_name, json.dumps(geometry)),
+            (name, json.dumps(geometry)),
         ).fetchone()
 
     if row is None:
         raise DemNotFound(
-            "No ingested DEM covers this location. It is outside the pilot region "
-            "or the pilot data has not been seeded yet."
+            f"No ingested '{name}' dataset covers this location. It is outside the "
+            "pilot region or the pilot data has not been seeded yet."
         )
     return {
-        "dataset": settings.dem_dataset_name,
+        "dataset": name,
         "object_key": row[0],
         "source": row[1],
         "resolution": row[2],
@@ -121,11 +136,16 @@ def resolve_dem(geometry: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+# Back-compat alias: callers/tests that read the DEM still use resolve_dem(geometry).
+resolve_dem = resolve_dataset
+
+
 @contextmanager
-def _open(provenance: dict[str, Any]) -> Iterator[Any]:
+def _open(provenance: dict[str, Any], dataset_name: str | None = None) -> Iterator[Any]:
     import rasterio
 
-    local = _local_file()
+    name = dataset_name or settings.dem_dataset_name
+    local = _local_file(name)
     if local:
         with rasterio.open(local) as src:
             yield src
@@ -158,12 +178,15 @@ def _to_float_nan(array: NDArray[Any], nodata: float | None) -> NDArray[np.float
 # --- read paths -----------------------------------------------------------------
 
 
-def sample_point(lon: float, lat: float, neighborhood: int = 1) -> DemSource:
+def sample_point(
+    lon: float, lat: float, neighborhood: int = 1, dataset_name: str | None = None
+) -> DemSource:
     """Read a (2n+1)x(2n+1) window centred on the point (slope needs neighbours)."""
     from rasterio.windows import Window
 
-    provenance = resolve_dem({"type": "Point", "coordinates": [lon, lat]})
-    with _open(provenance) as src:
+    geometry = {"type": "Point", "coordinates": [lon, lat]}
+    provenance = resolve_dataset(geometry, dataset_name)
+    with _open(provenance, dataset_name) as src:
         row, col = src.index(lon, lat)
         size = 2 * neighborhood + 1
         window = Window(col - neighborhood, row - neighborhood, size, size)
@@ -174,6 +197,35 @@ def sample_point(lon: float, lat: float, neighborhood: int = 1) -> DemSource:
     return DemSource(
         array=array, xres_m=xres_m, yres_m=yres_m, crs=crs, provenance=provenance
     )
+
+
+def sample_point_value(
+    lon: float, lat: float, dataset_name: str
+) -> tuple[float | None, dict[str, Any]]:
+    """Single value at the point for a (single-band) dataset, with its provenance."""
+    src = sample_point(lon, lat, neighborhood=0, dataset_name=dataset_name)
+    value = float(src.array[0, 0])
+    return (value if np.isfinite(value) else None), src.provenance
+
+
+def sample_point_monthly(
+    lon: float, lat: float, dataset_name: str
+) -> tuple[list[float] | None, dict[str, Any]]:
+    """Read all 12 bands at the point for the monthly-precip stack, with provenance."""
+    from rasterio.windows import Window
+
+    geometry = {"type": "Point", "coordinates": [lon, lat]}
+    provenance = resolve_dataset(geometry, dataset_name)
+    with _open(provenance, dataset_name) as src:
+        row, col = src.index(lon, lat)
+        window = Window(col, row, 1, 1)
+        values = []
+        for band in range(1, src.count + 1):
+            data = src.read(band, window=window, boundless=True, fill_value=src.nodata)
+            values.append(float(_to_float_nan(data, src.nodata)[0, 0]))
+    if not values or not all(np.isfinite(v) for v in values):
+        return None, provenance
+    return values, provenance
 
 
 def clip_polygon(geometry: dict[str, Any]) -> DemSource:
@@ -189,7 +241,17 @@ def clip_polygon(geometry: dict[str, Any]) -> DemSource:
 
     with _open(provenance) as src:
         aoi = gdf.to_crs(src.crs)
-        clipped, _ = mask(src, aoi.geometry, crop=True, filled=True, nodata=np.nan)
+        try:
+            clipped, _ = mask(src, aoi.geometry, crop=True, filled=True, nodata=np.nan)
+        except ValueError as exc:
+            # rasterio raises "Input shapes do not overlap raster" when the AOI falls
+            # outside the actual COG pixels (e.g. a provenance extent that over-claims
+            # coverage). Treat it as out-of-region rather than an opaque crash.
+            if "overlap" in str(exc).lower():
+                raise DemNotFound(
+                    "This area is outside the ingested pilot region."
+                ) from exc
+            raise
         array = _to_float_nan(clipped[0], None)  # already filled with nan
         xres_m, yres_m = _metric_resolution(src, center_lat)
         crs = str(src.crs)

@@ -17,8 +17,12 @@ class Settings(BaseSettings):
     minio_root_user: str = "terrabean"
     minio_root_password: str = "change-me-locally"
 
-    # DEM dataset name the engine resolves against dataset_provenance (FR-15).
+    # Dataset names the engine resolves against dataset_provenance (FR-15). DEM is
+    # terrain; the three climate datasets arrive in Phase 2 (ADR-0007).
     dem_dataset_name: str = "copernicus-glo30"
+    temperature_dataset_name: str = "chelsa-tas-annual"
+    precip_annual_dataset_name: str = "chelsa-pr-annual"
+    precip_monthly_dataset_name: str = "chelsa-pr-monthly"
     # When set, cog_reader reads this local COG instead of MinIO + PostGIS provenance.
     # Used by tests and offline dev so geoprocessing runs without the stack.
     cog_local_dir: str | None = None
