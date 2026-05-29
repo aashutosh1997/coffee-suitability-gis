@@ -2,7 +2,15 @@
 
 from app.suitability.config_loader import load_config
 from geo import scoring
-from geo.scoring import aggregate, assess_factors, find_band, map_class, score_factor
+from geo.scoring import (
+    aggregate,
+    assess_factors,
+    find_band,
+    find_band_by_label,
+    map_class,
+    rainfall_distribution_delta,
+    score_factor,
+)
 from tests.conftest import CONFIG_PATH
 
 CONFIG = load_config(CONFIG_PATH)
@@ -100,3 +108,111 @@ def test_limiting_factor_is_lowest_assessed_subscore():
 def test_aggregate_empty_assessed_is_safe():
     overall = aggregate([], set(), False, CONFIG.class_thresholds)
     assert overall.class_ == "N" and overall.limiting_factor is None
+
+
+# --- categorical scoring (shading) ----------------------------------------------
+
+
+def test_find_band_by_label_matches():
+    band = find_band_by_label(_factor("shading"), "frost_pocket")
+    assert band is not None and band.sub_score == 0.2 and band.hard_limit is True
+
+
+def test_find_band_by_label_missing_returns_none():
+    assert find_band_by_label(_factor("shading"), "nonexistent") is None
+
+
+def test_score_categorical_shading_band():
+    result, hard = score_factor(_factor("shading"), "moderate_shade_warm_site", PROV)
+    assert result.sub_score == 1.0 and result.band == "moderate_shade_warm_site"
+    assert result.raw_value is None and hard is False and result.source == PROV
+
+
+def test_score_categorical_frost_pocket_is_hard_limit():
+    result, hard = score_factor(_factor("shading"), "frost_pocket", PROV)
+    assert result.sub_score == 0.2 and hard is True
+
+
+def test_score_categorical_unknown_label_is_unscored():
+    result, hard = score_factor(_factor("shading"), "made_up", PROV)
+    assert result.band == "unscored" and result.sub_score == 0.0 and hard is False
+
+
+# --- rainfall-distribution modifier ---------------------------------------------
+
+MOD = CONFIG.rainfall_distribution_modifier
+
+
+def test_rainfall_modifier_bonus_for_distinct_dry_period():
+    # 3 consecutive near-zero months (a dry winter) -> bonus.
+    monthly = [100.0] * 9 + [0.0, 0.0, 0.0]
+    delta, note = rainfall_distribution_delta(monthly, MOD)
+    assert delta == MOD.bonus and "dry period" in note
+
+
+def test_rainfall_modifier_wraps_december_to_january():
+    # Dry months at Dec, Jan, Feb wrap into one 3-month run.
+    monthly = [0.0, 0.0] + [100.0] * 9 + [0.0]
+    delta, _ = rainfall_distribution_delta(monthly, MOD)
+    assert delta == MOD.bonus
+
+
+def test_rainfall_modifier_penalty_when_aseasonal():
+    delta, note = rainfall_distribution_delta([100.0] * 12, MOD)
+    assert delta == MOD.aseasonal_penalty and "Aseasonal" in note
+
+
+def test_rainfall_modifier_none_when_dry_run_outside_window():
+    # 5 dry months is longer than the 2-4 window -> no modifier.
+    monthly = [100.0] * 7 + [0.0] * 5
+    delta, _ = rainfall_distribution_delta(monthly, MOD)
+    assert delta == 0.0
+
+
+def test_rainfall_modifier_clamped_into_precip_subscore():
+    # Optimal precip (1.0) + bonus would be 1.05 -> clamped to 1.0.
+    monthly = [100.0] * 9 + [0.0, 0.0, 0.0]
+    results, _ = assess_factors(
+        CONFIG,
+        {"altitude": 1300.0, "slope": 12.0, "precipitation": 1700.0},
+        PROV,
+        monthly_precip=monthly,
+    )
+    precip = next(r for r in results if r.name == "precipitation")
+    assert precip.sub_score == 1.0 and "even flowering" in precip.explanation
+
+
+# --- full five-factor assessment (Phase 2) --------------------------------------
+
+FULL_OPTIMAL = {
+    "altitude": 1300.0,
+    "temperature": 20.0,
+    "precipitation": 1700.0,
+    "slope": 12.0,
+    "shading": "moderate_shade_warm_site",
+}
+
+
+def test_full_assessment_all_optimal_is_s1():
+    results, overall = assess_factors(CONFIG, FULL_OPTIMAL, PROV)
+    assert overall.score == 1.0 and overall.class_ == "S1"
+    assert all(r.band not in (scoring.NOT_ASSESSED, "unscored") for r in results)
+
+
+def test_full_assessment_frost_pocket_forces_n():
+    raw = {**FULL_OPTIMAL, "shading": "frost_pocket"}
+    _results, overall = assess_factors(CONFIG, raw, PROV)
+    assert overall.class_ == "N" and overall.limiting_factor == "shading"
+
+
+def test_per_factor_provenance_attached_by_name():
+    prov_by_factor = {
+        "altitude": {"dataset": "Copernicus GLO-30"},
+        "temperature": {"dataset": "CHELSA"},
+    }
+    results, _ = assess_factors(
+        CONFIG, {"altitude": 1300.0, "temperature": 20.0}, prov_by_factor
+    )
+    by_name = {r.name: r for r in results}
+    assert by_name["altitude"].source == {"dataset": "Copernicus GLO-30"}
+    assert by_name["temperature"].source == {"dataset": "CHELSA"}
