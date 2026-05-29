@@ -15,8 +15,10 @@ import argparse
 import shutil
 from pathlib import Path
 
-# Copernicus GLO-30 public tile layout on AWS Open Data.
+# Copernicus DEM public tile layout on AWS Open Data. GLO-30 (~30 m) for the focused
+# pilot; GLO-90 (~90 m, ~9x smaller) for national coverage where 30 m would be ~2 GB.
 COP_DEM_BASE = "https://copernicus-dem-30m.s3.amazonaws.com"
+COP_DEM_BASE_90 = "https://copernicus-dem-90m.s3.amazonaws.com"
 
 FIXTURE = (
     Path(__file__).resolve().parents[2]
@@ -28,11 +30,38 @@ FIXTURE = (
 )
 
 
-def tile_url(lat: int, lon: int) -> str:
+def tile_url(lat: int, lon: int, resolution: int = 30) -> str:
     ns = f"N{abs(lat):02d}" if lat >= 0 else f"S{abs(lat):02d}"
     ew = f"E{abs(lon):03d}" if lon >= 0 else f"W{abs(lon):03d}"
-    name = f"Copernicus_DSM_COG_10_{ns}_00_{ew}_00_DEM"
-    return f"{COP_DEM_BASE}/{name}/{name}.tif"
+    # The COG name encodes the grid spacing: "10" for GLO-30, "30" for GLO-90.
+    code = "30" if resolution == 90 else "10"
+    base = COP_DEM_BASE_90 if resolution == 90 else COP_DEM_BASE
+    name = f"Copernicus_DSM_COG_{code}_{ns}_00_{ew}_00_DEM"
+    return f"{base}/{name}/{name}.tif"
+
+
+def try_fetch_tile(lat: int, lon: int, out: Path, resolution: int = 90) -> Path | None:
+    """Download one tile; return None on any failure (NO fixture fallback).
+
+    Used by the national seed, where a missing tile must be skipped, not replaced by the
+    small pilot fixture (which would corrupt the mosaic).
+    """
+    try:
+        import requests
+
+        url = tile_url(lat, lon, resolution)
+        resp = requests.get(url, timeout=60, stream=True)
+        if resp.status_code != 200:
+            print(f"fetch_dem: skip {url} (HTTP {resp.status_code})")
+            return None
+        out.parent.mkdir(parents=True, exist_ok=True)
+        with open(out, "wb") as handle:
+            for chunk in resp.iter_content(chunk_size=1 << 20):
+                handle.write(chunk)
+        return out
+    except Exception as exc:  # offline, DNS, timeout, etc.
+        print(f"fetch_dem: skip N{lat} E{lon} ({type(exc).__name__})")
+        return None
 
 
 def _use_fixture(out: Path, reason: str) -> Path:
@@ -42,13 +71,15 @@ def _use_fixture(out: Path, reason: str) -> Path:
     return out
 
 
-def fetch(lat: int, lon: int, out: Path, fallback_fixture: bool = False) -> Path:
+def fetch(
+    lat: int, lon: int, out: Path, fallback_fixture: bool = False, resolution: int = 30
+) -> Path:
     if fallback_fixture:
         return _use_fixture(out, "requested")
     try:
         import requests
 
-        url = tile_url(lat, lon)
+        url = tile_url(lat, lon, resolution)
         print(f"fetch_dem: GET {url}")
         resp = requests.get(url, timeout=30, stream=True)
         if resp.status_code != 200:

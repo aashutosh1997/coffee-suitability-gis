@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := help
 COMPOSE := docker compose
 
-.PHONY: help up down logs ps test test-backend test-frontend lint lint-backend lint-frontend spike-terrain seed-pilot-data clean
+.PHONY: help up down logs ps test test-backend test-frontend lint lint-backend lint-frontend spike-terrain seed-pilot-data seed-nepal clean
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
@@ -39,6 +39,9 @@ spike-terrain: ## Run the terrain-shading benchmark on the committed Nepal fixtu
 
 seed-pilot-data: ## Seed the pilot DEM: fetch Copernicus (fixture fallback) -> COG -> MinIO -> provenance
 	cd data-pipelines && uv run python -m ingest.seed_pilot --version 2026.1 $(SEED_ARGS)
+
+seed-nepal: ## Seed ALL of Nepal: real Copernicus GLO-90 DEM + derived climate -> MinIO -> provenance
+	cd data-pipelines && uv run python -m ingest.seed_pilot --version 2026.1 --region nepal $(SEED_ARGS)
 
 clean: ## Remove the stack + named volumes
 	$(COMPOSE) down -v
