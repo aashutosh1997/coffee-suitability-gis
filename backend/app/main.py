@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import assess, health, version
+from app.api import assess, context, health, version
 from app.settings import settings
 from app.version import __version__
 
@@ -21,6 +21,7 @@ def create_app() -> FastAPI:
     app.include_router(health.router)
     app.include_router(version.router)
     app.include_router(assess.router)
+    app.include_router(context.router)
     return app
 
 
