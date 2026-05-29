@@ -7,7 +7,7 @@ import { ResultPanel } from "../ResultPanel";
 
 const RESULT: AssessResponse = {
   aoi: {},
-  overall: { class: "S2", score: 0.82, limiting_factor: "slope" },
+  overall: { class: "S1", score: 0.83, limiting_factor: "shading" },
   factors: [
     {
       name: "altitude",
@@ -17,21 +17,31 @@ const RESULT: AssessResponse = {
       sub_score: 1.0,
       weight: 0.25,
       explanation: "Altitude 1320 m is in the optimal band (1000–1500 m).",
-      source: { dataset: "Copernicus GLO-30" },
+      source: { dataset: "Copernicus GLO-30", resolution: "~30 m" },
     },
     {
       name: "temperature",
-      raw_value: null,
+      raw_value: 20.1,
       unit: "degC",
-      band: "not_assessed",
-      sub_score: 0.0,
+      band: "optimal",
+      sub_score: 1.0,
       weight: 0.25,
-      explanation: "Temperature is not assessed in this phase.",
-      source: {},
+      explanation: "Temperature 20.1 °C is in the optimal band (18–22 °C).",
+      source: { dataset: "CHELSA", resolution: "~1 km" },
+    },
+    {
+      name: "shading",
+      raw_value: null,
+      unit: null,
+      band: "moderate_shade_warm_site",
+      sub_score: 1.0,
+      weight: 0.15,
+      explanation: "Shading classified as moderate_shade_warm_site.",
+      source: { dataset: "terrain shading model" },
     },
   ],
   model_config_version: "2026.1",
-  uncertainty_notes: ["Terrain-only assessment."],
+  uncertainty_notes: ["Climate factors come from ~1 km normals."],
 };
 
 describe("ResultPanel", () => {
@@ -40,13 +50,20 @@ describe("ResultPanel", () => {
     expect(screen.getByText(/run an assessment/i)).toBeInTheDocument();
   });
 
-  it("renders class, limiting factor, assessed and not-assessed factors", () => {
+  it("renders class, limiting factor, and all five factors as assessed", () => {
     renderWithProviders(<ResultPanel result={RESULT} loading={false} />);
-    expect(screen.getByText("S2")).toBeInTheDocument();
-    expect(screen.getByText(/Moderately suitable/i)).toBeInTheDocument();
+    expect(screen.getByText("S1")).toBeInTheDocument();
+    expect(screen.getByText(/Highly suitable/i)).toBeInTheDocument();
     expect(screen.getByText(/Biggest limitation/i)).toBeInTheDocument();
-    expect(screen.getByText("altitude")).toBeInTheDocument();
-    // Climate factor rendered as not assessed.
-    expect(screen.getByText("Not assessed")).toBeInTheDocument();
+    expect(screen.getByText("temperature")).toBeInTheDocument();
+    // Categorical shading renders its band label, not "Not assessed".
+    expect(screen.getByText("moderate_shade_warm_site")).toBeInTheDocument();
+    expect(screen.queryByText("Not assessed")).not.toBeInTheDocument();
+  });
+
+  it("shows per-factor provenance in the Source column (FR-15)", () => {
+    renderWithProviders(<ResultPanel result={RESULT} loading={false} />);
+    expect(screen.getByText(/Copernicus GLO-30 · ~30 m/)).toBeInTheDocument();
+    expect(screen.getByText(/CHELSA · ~1 km/)).toBeInTheDocument();
   });
 });

@@ -31,4 +31,14 @@ describe("App", () => {
     expect(screen.getByText(/TerraBean/i)).toBeInTheDocument();
     expect(screen.getByTestId("pilot-map")).toBeInTheDocument();
   });
+
+  it("offers a Print / Save as PDF button (disabled until there is a result)", () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ status: "ok" }) }),
+    );
+    renderWithProviders(<App />);
+    const button = screen.getByRole("button", { name: /Print \/ Save as PDF/i });
+    expect(button).toBeDisabled();
+  });
 });

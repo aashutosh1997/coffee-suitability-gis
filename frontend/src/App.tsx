@@ -1,4 +1,4 @@
-import { AppShell, Box, Paper, Title } from "@mantine/core";
+import { AppShell, Box, Button, Group, Paper, Stack, Title } from "@mantine/core";
 import maplibregl from "maplibre-gl";
 import { useCallback, useEffect, useState } from "react";
 
@@ -12,6 +12,7 @@ import {
 import { AOIInput } from "./components/AOIInput";
 import { HealthBadge } from "./components/HealthBadge";
 import { PilotMap } from "./components/PilotMap";
+import { RecentClimate } from "./components/RecentClimate";
 import { ResultPanel } from "./components/ResultPanel";
 
 export default function App() {
@@ -49,6 +50,7 @@ export default function App() {
   };
 
   const busy = assess.isPending || !!jobId;
+  const point = geometry?.type === "Point" ? (geometry.coordinates as number[]) : null;
 
   return (
     <AppShell header={{ height: 56 }} padding="md">
@@ -61,10 +63,21 @@ export default function App() {
         }}
       >
         <Title order={4}>TerraBean — Arabica Suitability (Nepal mid-hills pilot)</Title>
-        <HealthBadge />
+        <Group gap="sm" className="no-print">
+          <Button
+            size="xs"
+            variant="default"
+            disabled={!result}
+            onClick={() => window.print()}
+          >
+            Print / Save as PDF
+          </Button>
+          <HealthBadge />
+        </Group>
       </AppShell.Header>
       <AppShell.Main>
         <Box
+          className="print-full"
           style={{
             display: "grid",
             gridTemplateColumns: "1fr 380px",
@@ -72,7 +85,7 @@ export default function App() {
             height: "calc(100vh - 88px)",
           }}
         >
-          <div style={{ position: "relative" }}>
+          <div className="no-print" style={{ position: "relative" }}>
             <PilotMap onMapReady={onMapReady} />
             <Paper
               shadow="sm"
@@ -87,11 +100,16 @@ export default function App() {
               />
             </Paper>
           </div>
-          <Paper shadow="sm" p="md" style={{ overflow: "auto" }}>
-            <Title order={5} mb="sm">
-              Result
-            </Title>
-            <ResultPanel result={result} loading={busy} error={error} />
+          <Paper className="print-area" shadow="sm" p="md" style={{ overflow: "auto" }}>
+            <Stack gap="md">
+              <div>
+                <Title order={5} mb="sm">
+                  Result
+                </Title>
+                <ResultPanel result={result} loading={busy} error={error} />
+              </div>
+              <RecentClimate lon={point?.[0] ?? null} lat={point?.[1] ?? null} />
+            </Stack>
           </Paper>
         </Box>
       </AppShell.Main>

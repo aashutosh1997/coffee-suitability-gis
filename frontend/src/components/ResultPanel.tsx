@@ -16,6 +16,14 @@ const CLASS_LABEL: Record<string, string> = {
   N: "Not suitable",
 };
 
+// Compact per-factor provenance for the Source column (FR-15: dataset · resolution · date).
+function provenanceText(source: Record<string, unknown>): string {
+  const parts = [source.dataset, source.resolution, source.retrieved]
+    .filter((v) => v != null && v !== "")
+    .map(String);
+  return parts.length ? parts.join(" · ") : "—";
+}
+
 interface Props {
   result: AssessResponse | null;
   loading: boolean;
@@ -68,6 +76,7 @@ export function ResultPanel({ result, loading, error }: Props) {
             <Table.Th>Value</Table.Th>
             <Table.Th>Band</Table.Th>
             <Table.Th>Explanation</Table.Th>
+            <Table.Th>Source</Table.Th>
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
@@ -81,6 +90,7 @@ export function ResultPanel({ result, loading, error }: Props) {
                 <Table.Td>{value}</Table.Td>
                 <Table.Td>{notAssessed ? "Not assessed" : f.band}</Table.Td>
                 <Table.Td>{f.explanation}</Table.Td>
+                <Table.Td>{provenanceText(f.source)}</Table.Td>
               </Table.Tr>
             );
           })}

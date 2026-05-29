@@ -98,3 +98,28 @@ export function useAssessJob(jobId: string | null) {
     },
   });
 }
+
+// --- recent-conditions context (non-scoring) -----------------------------------
+
+export interface RecentClimate {
+  source: string | null;
+  annual_mean_temp_c: number | null;
+  annual_precip_mm: number | null;
+  period: string | null;
+  note: string | null;
+  available: boolean;
+}
+
+export function useRecentClimate(lon: number | null, lat: number | null) {
+  return useQuery<RecentClimate>({
+    queryKey: ["recent-climate", lon, lat],
+    enabled: lon != null && lat != null,
+    staleTime: 1000 * 60 * 60, // climatology is stable; cache for an hour
+    queryFn: async () => {
+      const res = await fetch(
+        `${API_BASE}/context/recent-climate?lon=${lon}&lat=${lat}`,
+      );
+      return (await res.json()) as RecentClimate;
+    },
+  });
+}
