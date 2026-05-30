@@ -1,0 +1,44 @@
+plot_id,latitude,longitude,district,elevation_m_observed,observed_status,cultivar,planting_year,notes,labelled_by,label_date
+# SYNTHETIC STRATIFIED SET — carries NO agronomic meaning; do NOT use to claim accuracy (docs/phase-0/ground-truth-plan.md §5).
+# Built to exercise the Phase 3 validation harness end-to-end: spans S1/S2/S3/N expectations, ~150-2250 m, all pilot districts + a few extended-region lowland sites, plus frost-pocket candidates and a handful of deliberate model/observation mismatches.
+# observed_status must be one of: thriving | struggling | failed
+GUL-001,28.0700,83.8900,Gulmi,1320,thriving,Bourbon,2015,SYNTHETIC - mid-altitude optimal shaded slope,A.Agronomist,2026-05-29
+GUL-002,28.0800,83.8500,Gulmi,1180,thriving,Typica,2014,SYNTHETIC - optimal band well-managed,A.Agronomist,2026-05-29
+GUL-003,28.1000,83.8200,Gulmi,1450,thriving,Bourbon,2016,SYNTHETIC - upper optimal band,A.Agronomist,2026-05-29
+GUL-004,28.0600,83.9100,Gulmi,1550,thriving,Caturra,2015,SYNTHETIC - good upper band south aspect,A.Agronomist,2026-05-29
+GUL-005,28.1200,83.7800,Gulmi,1680,struggling,Typica,2017,SYNTHETIC - cooling marginal upper band,A.Agronomist,2026-05-29
+GUL-006,28.1400,83.7500,Gulmi,1820,struggling,Catimor,2018,SYNTHETIC - marginal high cool site,A.Agronomist,2026-05-29
+GUL-007,28.1500,83.7200,Gulmi,1950,failed,Typica,2017,SYNTHETIC - above viable altitude,A.Agronomist,2026-05-29
+GUL-008,28.0400,83.9500,Gulmi,720,struggling,Bourbon,2019,SYNTHETIC - low marginal warm band,A.Agronomist,2026-05-29
+GUL-009,28.0200,83.9800,Gulmi,640,struggling,Catimor,2018,SYNTHETIC - low marginal near hot edge,A.Agronomist,2026-05-29
+GUL-010,28.1600,83.7000,Gulmi,2150,failed,Typica,2016,SYNTHETIC - high ridge unsuitable,A.Agronomist,2026-05-29
+GUL-011,28.0500,83.8800,Gulmi,1100,failed,Bourbon,2017,SYNTHETIC - flat valley floor frost-prone cold-air pooling,A.Agronomist,2026-05-29
+GUL-012,28.0900,83.8300,Gulmi,1250,struggling,Caturra,2016,SYNTHETIC - optimal terrain but neglected/poor management,A.Agronomist,2026-05-29
+GUL-013,28.1100,83.8000,Gulmi,1490,thriving,Bourbon,2014,SYNTHETIC - optimal mid slope,A.Agronomist,2026-05-29
+SYA-001,27.9500,83.7600,Syangja,1580,thriving,Typica,2014,SYNTHETIC - good upper band,A.Agronomist,2026-05-29
+SYA-002,27.9300,83.8000,Syangja,1380,thriving,Bourbon,2015,SYNTHETIC - optimal band,A.Agronomist,2026-05-29
+SYA-003,27.9700,83.7200,Syangja,1150,thriving,Caturra,2016,SYNTHETIC - optimal band shaded,A.Agronomist,2026-05-29
+SYA-004,27.9000,83.8500,Syangja,1720,struggling,Typica,2018,SYNTHETIC - marginal cool upper band,A.Agronomist,2026-05-29
+SYA-005,27.9900,83.6800,Syangja,1880,struggling,Catimor,2017,SYNTHETIC - marginal high site,A.Agronomist,2026-05-29
+SYA-006,27.8800,83.8800,Syangja,850,thriving,Bourbon,2013,SYNTHETIC - good warm band managed shade,A.Agronomist,2026-05-29
+SYA-007,27.8600,83.9000,Syangja,700,struggling,Caturra,2019,SYNTHETIC - low marginal warm,A.Agronomist,2026-05-29
+SYA-008,27.9400,83.7800,Syangja,1050,failed,Typica,2017,SYNTHETIC - valley floor frost pocket,A.Agronomist,2026-05-29
+SYA-009,27.9600,83.7400,Syangja,1850,thriving,Bourbon,2014,SYNTHETIC - exceptional sheltered south-facing microclimate,A.Agronomist,2026-05-29
+SYA-010,27.9100,83.8300,Syangja,2050,failed,Typica,2016,SYNTHETIC - above viable altitude,A.Agronomist,2026-05-29
+SYA-011,27.9200,83.8100,Syangja,1330,thriving,Caturra,2015,SYNTHETIC - optimal band,A.Agronomist,2026-05-29
+KAV-001,27.6200,85.5400,Kavre,1180,struggling,Catimor,2018,SYNTHETIC - irregular aseasonal rainfall reported by farmer,A.Agronomist,2026-05-29
+KAV-002,27.5800,85.6100,Kavre,2010,failed,Typica,2017,SYNTHETIC - above viable altitude frost-prone,A.Agronomist,2026-05-29
+KAV-003,27.6500,85.5000,Kavre,1350,thriving,Bourbon,2015,SYNTHETIC - optimal band,A.Agronomist,2026-05-29
+KAV-004,27.6000,85.5800,Kavre,1480,thriving,Caturra,2016,SYNTHETIC - optimal band,A.Agronomist,2026-05-29
+KAV-005,27.5500,85.6400,Kavre,1650,thriving,Typica,2014,SYNTHETIC - good upper band,A.Agronomist,2026-05-29
+KAV-006,27.6800,85.4600,Kavre,1750,struggling,Catimor,2018,SYNTHETIC - marginal cool upper band,A.Agronomist,2026-05-29
+KAV-007,27.5200,85.6700,Kavre,1900,failed,Typica,2017,SYNTHETIC - at unsuitable altitude edge,A.Agronomist,2026-05-29
+KAV-008,27.6600,85.5200,Kavre,850,failed,Bourbon,2018,SYNTHETIC - Panchkhal valley floor cold-air pooling frost,A.Agronomist,2026-05-29
+KAV-009,27.6300,85.5500,Kavre,1280,thriving,Bourbon,2015,SYNTHETIC - optimal band shaded slope,A.Agronomist,2026-05-29
+KAV-010,27.5700,85.6200,Kavre,780,struggling,Caturra,2019,SYNTHETIC - low marginal warm band,A.Agronomist,2026-05-29
+KAV-011,27.5900,85.5900,Kavre,1420,struggling,Bourbon,2022,SYNTHETIC - optimal terrain but very young plants,A.Agronomist,2026-05-29
+KAV-012,27.6100,85.5600,Kavre,2250,failed,Typica,2016,SYNTHETIC - high ridge unsuitable,A.Agronomist,2026-05-29
+NAW-001,27.5500,83.6500,Nawalparasi,180,failed,Bourbon,2018,SYNTHETIC - hot Terai lowland too warm,A.Agronomist,2026-05-29
+NAW-002,27.5000,83.7000,Nawalparasi,150,failed,Caturra,2019,SYNTHETIC - hot Terai lowland too warm,A.Agronomist,2026-05-29
+CHI-001,27.5800,84.4200,Chitwan,250,failed,Typica,2018,SYNTHETIC - hot Terai lowland unsuitable,A.Agronomist,2026-05-29
+CHI-002,27.5500,84.5000,Chitwan,200,failed,Bourbon,2019,SYNTHETIC - hot Terai lowland unsuitable,A.Agronomist,2026-05-29
