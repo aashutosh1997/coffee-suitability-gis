@@ -22,20 +22,32 @@ import tempfile
 from collections.abc import Callable
 from pathlib import Path
 
-from ingest import fetch_climate, fetch_dem, push_minio, register_provenance
+from ingest import (
+    fetch_chelsa,
+    fetch_climate,
+    fetch_dem,
+    push_minio,
+    register_provenance,
+)
 
 DATASET = "copernicus-glo30"
 
 # Climate datasets seeded alongside the DEM (Phase 2). Each entry:
-#   (dataset_name, builder(out, source_dem)->path, resolution label, detail label)
-# Production source is CHELSA/WorldClim (ADR-0007); offline this is the synthetic
-# DEM-derived generator in fetch_climate. dataset_name stays stable across sources so
-# cog_reader's provenance lookup does not change.
+#   (dataset_name, synthetic_builder(out, source_dem)->path, resolution label, detail)
+# dataset_name stays stable across sources so cog_reader's provenance lookup never
+# changes; the provenance `source` flips to "CHELSA ..." when --climate-source=real.
 CLIMATE_DATASETS: list[tuple[str, Callable[[str, str | None], str], str, str]] = [
     ("chelsa-tas-annual", fetch_climate.fetch_temperature, "~1 km", "annual mean degC"),
     ("chelsa-pr-annual", fetch_climate.fetch_precip_annual, "~1 km", "annual mm"),
     ("chelsa-pr-monthly", fetch_climate.fetch_precip_monthly, "~1 km", "12 monthly mm"),
 ]
+# Real CHELSA V2.1 builders (production path per ADR-0007). Per-dataset fallback to
+# the synthetic builder kicks in if the CHELSA download fails (R-NET).
+REAL_CLIMATE_BUILDERS: dict[str, Callable[[str, str | None], str]] = {
+    "chelsa-tas-annual": fetch_chelsa.fetch_temperature,
+    "chelsa-pr-annual": fetch_chelsa.fetch_precip_annual,
+    "chelsa-pr-monthly": fetch_chelsa.fetch_precip_monthly,
+}
 # Copernicus GLO-30 1x1 degree tiles (SW corner) covering the pilot districts.
 DEFAULT_TILES: list[tuple[int, int]] = [
     (27, 83),
@@ -148,6 +160,7 @@ def seed(
     bucket: str | None = None,
     resolution: int = 90,
     region: str = "pilot",
+    climate_source: str = "synthetic",
 ) -> str:
     out_cog = tempfile.mkstemp(prefix=f"{region}_{version}_", suffix=".tif")[1]
     if region == "nepal":
@@ -173,7 +186,13 @@ def seed(
     )
     print(f"seed_pilot: registered {DATASET} {version} -> {object_key}")
 
-    seed_climate(version, bucket, source_dem=out_cog, region=region)
+    seed_climate(
+        version,
+        bucket,
+        source_dem=out_cog,
+        region=region,
+        climate_source=climate_source,
+    )
     return object_key
 
 
@@ -182,24 +201,50 @@ def seed_climate(
     bucket: str | None = None,
     source_dem: str | None = None,
     region: str = "pilot",
+    climate_source: str = "synthetic",
 ) -> list[str]:
-    """Seed temperature / precip / monthly-precip COGs derived from `source_dem`."""
+    """Seed temperature / precip / monthly-precip COGs.
+
+    `climate_source="real"` pulls CHELSA V2.1 via /vsicurl (ADR-0007); on per-dataset
+    network failure it falls back to the synthetic DEM-derived builder for THAT one
+    dataset, with provenance honestly labelled. `climate_source="synthetic"` (default)
+    uses the synthetic generator for all three -- the offline/CI path.
+    """
     keys: list[str] = []
-    for name, build, resolution, detail in CLIMATE_DATASETS:
+    for name, synthetic_build, resolution, detail in CLIMATE_DATASETS:
         out = tempfile.mkstemp(prefix=f"{name}_{version}_", suffix=".tif")[1]
-        build(out, source_dem)
+        used_real = False
+        if climate_source == "real" and name in REAL_CLIMATE_BUILDERS:
+            try:
+                REAL_CLIMATE_BUILDERS[name](out, source_dem)
+                used_real = True
+            except fetch_chelsa.ChelsaUnavailable as exc:
+                print(
+                    f"seed_pilot: CHELSA unavailable for {name} ({exc}); "
+                    "falling back to synthetic for this dataset"
+                )
+        if not used_real:
+            synthetic_build(out, source_dem)
+        if used_real:
+            source_label = "CHELSA V2.1 1981-2010 climatology"
+            resolution_label = "~1 km"
+        else:
+            source_label = f"synthetic (DEM-derived, {detail})"
+            resolution_label = f"{resolution} (synthetic, DEM-derived)"
         object_key = f"climate/{name}/{region}/{version}.tif"
         push_minio.push(out, object_key, bucket)
         register_provenance.register(
             dataset_name=name,
-            source=f"synthetic (DEM-derived, {detail})",
-            resolution=f"{resolution} (synthetic, DEM-derived)",
+            source=source_label,
+            resolution=resolution_label,
             crs="EPSG:4326",
             version=version,
             object_key=object_key,
             extent_wkt=_extent_wkt_4326(out),
         )
-        print(f"seed_pilot: registered {name} {version} -> {object_key}")
+        print(
+            f"seed_pilot: registered {name} {version} ({source_label}) -> {object_key}"
+        )
         keys.append(object_key)
     return keys
 
@@ -217,6 +262,12 @@ def main() -> None:
     )
     parser.add_argument("--fallback-fixture", action="store_true")
     parser.add_argument("--bucket", default=None)
+    parser.add_argument(
+        "--climate-source",
+        choices=["synthetic", "real"],
+        default="synthetic",
+        help="real = download CHELSA V2.1 (~1 km, ADR-0007); synthetic = DEM-derived",
+    )
     args = parser.parse_args()
     seed(
         args.version,
@@ -224,6 +275,7 @@ def main() -> None:
         bucket=args.bucket,
         resolution=args.resolution,
         region=args.region,
+        climate_source=args.climate_source,
     )
 
 
