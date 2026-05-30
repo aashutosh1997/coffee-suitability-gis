@@ -36,7 +36,9 @@ def test_each_layer_carries_titiler_url_and_provenance(client):
 
 def test_monthly_layer_exposes_twelve_band_metadata(client):
     body = client.get("/overlays").json()
-    monthly = next(layer for layer in body["layers"] if layer["key"] == "precip-monthly")
+    monthly = next(
+        layer for layer in body["layers"] if layer["key"] == "precip-monthly"
+    )
     assert monthly["band_count"] == 12
     assert monthly["bands"] is not None
     assert [b["n"] for b in monthly["bands"]] == list(range(1, 13))
