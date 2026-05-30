@@ -117,7 +117,7 @@ sequenceDiagram
 | **API (FastAPI)** | AuthN/Z, request validation, fast point path, job orchestration, results API, config management |
 | **Geoprocessing library** | Shared Python module: raster sampling, slope/aspect, hillshade/sky-view/insolation, zonal stats, suitability engine. Used by both API and workers |
 | **Workers (Celery)** | Long-running polygon analysis, batch jobs, report rendering |
-| **Tile server (TiTiler)** | Serve DEM/derivative/result rasters as web map tiles from COGs |
+| **Tile server (TiTiler)** | Serve DEM/derivative/result rasters as web map tiles from COGs. Dev: reachable on `:8001`; production fronts api+titiler behind a single nginx origin. The browser never picks the COG URL itself — the API's `/overlays` endpoint hands it a TiTiler-ready tile template per dataset, with provenance and colormap baked in (FR-13, [ADR-0008](adr/0008-titiler-raster-overlays.md)) |
 | **Data ingestion** | Scheduled jobs that fetch, reproject, tile, and store DEM/climate/soil/land-cover as Cloud-Optimized GeoTIFFs for the supported region(s); refresh weather caches |
 | **PostGIS** | Plots/AOIs, assessment results, audit log, model config versions, vector layers |
 | **Object storage (MinIO)** | COG rasters; S3-compatible so cloud migration = endpoint swap |

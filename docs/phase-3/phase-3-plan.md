@@ -26,7 +26,19 @@ explicitly defers the supporting model/UX work to a later iteration.
 
 Soil factor (SoilGrids), canopy shading from land-cover (ESA WorldCover), agronomist controls
 (in-app weight/threshold edits, expert overrides, audit log), batch assessment + save/compare,
-TiTiler raster factor-layer map overlays (FR-13), and field-officer UX polish.
+and field-officer UX polish.
+
+## FR-13 shipped (2026-05-30 — raster factor-layer overlays)
+
+The FR-13 toggleable factor layers landed in their own slice: a backend `GET /overlays`
+discovery endpoint, a `RasterOverlayLayer` MapLibre component, and an `OverlayPanel` UI
+with per-layer opacity + colormap legend + month selection for the 12-band monthly
+precip stack. Colormap and rescale are server-side authority so the legend cannot drift
+from the rendered tiles. The agronomist can now see *what the input data looks like*
+under the AOI, not just the per-factor numbers in the result panel. Details: [ADR-0008](../adr/0008-titiler-raster-overlays.md);
+risks added: R-OVLPERF, R-OVLCMAP ([risk-register.md](../phase-0/risk-register.md)).
+Slope/aspect/hillshade and soil overlays are explicitly deferred (engine derives the
+first three in-memory; soil is gated on SoilGrids ingestion).
 
 ## Stakeholders (doc 08 RACI — P3 column)
 
