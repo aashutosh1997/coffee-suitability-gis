@@ -18,6 +18,9 @@ export function PilotMap({ onMapReady }: Props) {
       style: BASEMAP_STYLE,
       center: PILOT_CENTER,
       zoom: PILOT_ZOOM,
+      // Required so map.getCanvas().toDataURL() returns the rendered pixels for the
+      // print-report snapshot; WebGL canvases otherwise read back blank.
+      preserveDrawingBuffer: true,
     });
     mapRef.current = map;
     map.on("load", () => onMapReady?.(map));
