@@ -6,14 +6,23 @@ import {
   isJob,
   useAssess,
   useAssessJob,
+  useOverlays,
   type AssessResponse,
   type Geometry,
 } from "./api/client";
 import { AOIInput } from "./components/AOIInput";
 import { AOILayer } from "./components/AOILayer";
 import { HealthBadge } from "./components/HealthBadge";
+import {
+  OverlayPanel,
+  defaultOverlayState,
+  getBand,
+  getOpacity,
+  type OverlayUiState,
+} from "./components/OverlayPanel";
 import { PilotMap } from "./components/PilotMap";
 import { PrintReport } from "./components/PrintReport";
+import { RasterOverlayLayer } from "./components/RasterOverlayLayer";
 import { RecentClimate } from "./components/RecentClimate";
 import { ResultPanel } from "./components/ResultPanel";
 import { aoiBounds } from "./utils/geo";
@@ -25,9 +34,11 @@ export default function App() {
   const [result, setResult] = useState<AssessResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [printSnapshot, setPrintSnapshot] = useState<string | null>(null);
+  const [overlayState, setOverlayState] = useState<OverlayUiState>(defaultOverlayState);
 
   const assess = useAssess();
   const job = useAssessJob(jobId);
+  const overlays = useOverlays();
 
   useEffect(() => {
     if (!job.data) return;
@@ -55,6 +66,27 @@ export default function App() {
 
   const busy = assess.isPending || !!jobId;
   const point = geometry?.type === "Point" ? (geometry.coordinates as number[]) : null;
+
+  const toggleOverlay = useCallback((key: string) => {
+    setOverlayState((prev) => {
+      const enabled = new Set(prev.enabled);
+      if (enabled.has(key)) enabled.delete(key);
+      else enabled.add(key);
+      return { ...prev, enabled };
+    });
+  }, []);
+  const setOverlayOpacity = useCallback((key: string, value: number) => {
+    setOverlayState((prev) => ({
+      ...prev,
+      opacity: { ...prev.opacity, [key]: value },
+    }));
+  }, []);
+  const setOverlayBand = useCallback((key: string, band: number) => {
+    setOverlayState((prev) => ({
+      ...prev,
+      band: { ...prev.band, [key]: band },
+    }));
+  }, []);
 
   const printReport = async () => {
     if (!result || !geometry || !map) {
@@ -132,6 +164,18 @@ export default function App() {
           <div className="no-print" style={{ position: "relative" }}>
             <PilotMap onMapReady={onMapReady} />
             <AOILayer map={map} geometry={geometry} />
+            {(overlays.data?.layers ?? [])
+              .filter((layer) => overlayState.enabled.has(layer.key))
+              .map((layer) => (
+                <RasterOverlayLayer
+                  key={layer.key}
+                  map={map}
+                  layer={layer}
+                  opacity={getOpacity(overlayState, layer.key)}
+                  visible={true}
+                  band={layer.band_count > 1 ? getBand(overlayState, layer.key) : null}
+                />
+              ))}
             <Paper
               shadow="sm"
               p="sm"
@@ -144,6 +188,14 @@ export default function App() {
                 busy={busy}
               />
             </Paper>
+            <div style={{ position: "absolute", top: 12, right: 12, zIndex: 1 }}>
+              <OverlayPanel
+                state={overlayState}
+                onToggle={toggleOverlay}
+                onOpacity={setOverlayOpacity}
+                onBand={setOverlayBand}
+              />
+            </div>
           </div>
           <Paper className="print-area" shadow="sm" p="md" style={{ overflow: "auto" }}>
             <Stack gap="md">

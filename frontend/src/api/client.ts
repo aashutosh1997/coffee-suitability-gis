@@ -110,6 +110,45 @@ export interface RecentClimate {
   available: boolean;
 }
 
+// --- raster overlays (FR-13) ----------------------------------------------------
+
+export interface OverlayBand {
+  n: number;
+  name: string;
+}
+
+export interface OverlayLayer {
+  key: string;
+  name: string;
+  units: string;
+  dataset: string;
+  source: string | null;
+  resolution: string | null;
+  retrieved: string | null;
+  version: string | null;
+  colormap: string;
+  rescale: [number, number];
+  band_count: number;
+  bands: OverlayBand[] | null;
+  tile_url_template: string;
+}
+
+export interface OverlaysResponse {
+  layers: OverlayLayer[];
+}
+
+export function useOverlays() {
+  return useQuery<OverlaysResponse>({
+    queryKey: ["overlays"],
+    staleTime: Infinity, // provenance flips only on re-seed; manual refresh if needed
+    queryFn: async () => {
+      const res = await fetch(`${API_BASE}/overlays`);
+      if (!res.ok) throw new Error(`overlays request failed: ${res.status}`);
+      return (await res.json()) as OverlaysResponse;
+    },
+  });
+}
+
 export function useRecentClimate(lon: number | null, lat: number | null) {
   return useQuery<RecentClimate>({
     queryKey: ["recent-climate", lon, lat],
