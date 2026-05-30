@@ -29,6 +29,72 @@ vendor-neutral (open-source, S3-compatible storage, OIDC auth), so migrating to 
 managed cloud is a configuration and infrastructure change rather than a rewrite. See
 [ADR-0003](docs/adr/0003-containerize-for-onprem-to-cloud-portability.md).
 
+A **stakeholder-demo deploy** is live ahead of full Phase 4 hardening — a single
+Compute Engine VM running the unchanged `docker-compose.yml` behind Caddy. It costs
+~$17/month (or ~$6 with overnight stop) and is sized for the $300 GCP free trial. See
+[ADR-0009](docs/adr/0009-gcp-single-vm-demo-deployment.md) for why this shape was chosen
+over GKE / Cloud Run / managed services.
+
+---
+
+## Demo: start, stop, tear down
+
+The demo runs on a single GCP VM provisioned by [`infra/gcp/`](infra/gcp/). The full
+runbook (prereqs, cost projections, restore-from-snapshot, resize) lives in
+[`infra/gcp/README.md`](infra/gcp/README.md); the daily commands are:
+
+### First-time provisioning (run once)
+
+```bash
+gcloud auth login
+gcloud config set project <YOUR_PROJECT_ID>
+bash infra/gcp/provision.sh           # creates the VM + firewall, prints the IP
+```
+
+Point a DNS A record at the printed IP, SSH in (`make vm-ssh`), copy
+`.env.prod.example` → `.env`, set `DEPLOY_HOSTNAME` + strong passwords, then:
+
+```bash
+make deploy        # build + start the production stack behind Caddy
+make deploy-seed   # one-time pilot DEM + climate seed into MinIO + PostGIS
+```
+
+Caddy auto-issues a Let's Encrypt cert the first time a browser hits the domain.
+
+### Day-to-day toggles (run from your laptop)
+
+```bash
+make vm-start      # start the VM; prints the (possibly new) external IP
+make vm-stop       # stop the VM -- compute charges pause (~95% saving), data survives
+make vm-ssh        # SSH into the VM
+```
+
+Stopping overnight drops the monthly burn from ~$17.65 to ~$6.20 (disk + snapshots
+only); the $300 GCP trial lasts ~17 months always-on or ~48 months on a stop-overnight
+schedule.
+
+### On the VM, while the stack is running
+
+```bash
+make deploy        # re-pull / rebuild / restart after a code change
+make deploy-logs   # tail logs
+make deploy-down   # stop the stack (volumes survive, VM stays up)
+```
+
+### Tear it all down
+
+```bash
+gcloud compute instances delete terrabean-demo --zone asia-southeast1-a
+gcloud compute firewall-rules delete terrabean-allow-http-https
+# Optional: also delete snapshots if you don't want a ~$1.30/mo backup hanging around
+gcloud compute snapshots list --filter="sourceDisk~terrabean-demo-boot" \
+  --format='value(name)' | xargs -r gcloud compute snapshots delete --quiet
+```
+
+Detailed walkthrough: [`infra/gcp/README.md`](infra/gcp/README.md). Risk register
+additions (R-VMSPILL, R-LELIMIT, R-COSTDRIFT, R-IPDRIFT, R-PINSTALE): see
+[`docs/phase-0/risk-register.md`](docs/phase-0/risk-register.md).
+
 ---
 
 ## How to read this repository
