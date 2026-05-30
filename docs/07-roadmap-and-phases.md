@@ -70,6 +70,13 @@ gantt
 - On-prem deployment via IaC (Terraform/Ansible), docs, and **staff training**.
 - **Exit:** live on-prem, monitored, backed up, with trained users and runbooks.
 
+> **Note (2026-05-30):** a stakeholder-demo deploy went live ahead of the Phase 4
+> hardening — a single GCP Compute Engine VM running the unchanged
+> `docker-compose.yml` behind Caddy ([ADR-0009](adr/0009-gcp-single-vm-demo-deployment.md)).
+> It deliberately skips SSO/observability/backups/HA — those remain Phase 4
+> work. Phase 4's hardening still applies; the demo is time-bounded by the $300
+> GCP trial and is **not** the production launch.
+
 ## Phase 5 — Cloud Migration & Advanced  *(optional, ~8 weeks)*
 **Goal:** scale and deepen — only if needed.
 - Migrate to managed cloud k8s; swap MinIO→S3/GCS, Redis/Postgres→managed (per [ADR-0003](adr/0003-containerize-for-onprem-to-cloud-portability.md)).
