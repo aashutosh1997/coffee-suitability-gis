@@ -1,8 +1,7 @@
 # TerraBean — Phase 0 walking skeleton.
 # `cp .env.example .env` then `docker compose up --build`.
-# Core services prove web -> API -> worker -> data stores end-to-end. TiTiler is behind
-# the "tiles" profile (no real COG exists until the data spike pushes one to MinIO):
-#   docker compose --profile tiles up
+# Core services prove web -> API -> worker -> data stores end-to-end. TiTiler serves
+# raster overlays on :8001 (FR-13, see docs/adr/0008-titiler-raster-overlays.md).
 # Keycloak/observability/edge-proxy are deferred to Phase 4 (see docs/04-architecture.md).
 
 services:
@@ -116,16 +115,28 @@ services:
 
   titiler:
     image: ghcr.io/developmentseed/titiler:latest
-    profiles: ["tiles"]
     environment:
+      # GDAL/vsis3 against MinIO -- mirrors backend/geo/cog_reader._configure_gdal_s3.
+      # AWS_S3_ENDPOINT must be host:port with NO scheme; AWS_HTTPS / AWS_VIRTUAL_HOSTING
+      # tell GDAL it's plain-http path-style MinIO, not real AWS.
       AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
       AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
-      AWS_S3_ENDPOINT: ${MINIO_ENDPOINT}
+      AWS_S3_ENDPOINT: minio:9000
       AWS_VIRTUAL_HOSTING: "FALSE"
+      AWS_HTTPS: "NO"
+      GDAL_DISABLE_READDIR_ON_OPEN: "EMPTY_DIR"
+      # Dev only -- the on-prem deployment fronts api + titiler behind nginx so
+      # the browser hits a single origin and CORS becomes a non-issue.
+      CORS_ALLOW_ORIGINS: "*"
     ports:
-      - "8001:8000"
+      - "8001:80"
     depends_on:
       - minio
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost/healthz', timeout=2).status == 200 else 1)\""]
+      interval: 10s
+      timeout: 5s
+      retries: 6
 
 volumes:
   pgdata:
