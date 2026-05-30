@@ -1,0 +1,66 @@
+# Production overlay for the GCP single-VM deployment.
+# Run with:  docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# - Replaces the Vite dev `web` with a Caddy that serves the built SPA AND reverse-
+#   proxies /api/* + /tiles/* (single origin, no CORS).
+# - Removes the public port mappings on the upstreams -- Caddy is the only thing
+#   reaching the public network on :80 / :443.
+# - Pins minio + titiler tags (latest is a footgun in prod).
+# - Tightens CORS to the deploy hostname as belt-and-braces (Caddy already collapses
+#   the origin so this never fires in the happy path).
+# See docs/adr/0009-gcp-single-vm-demo-deployment.md for the cost/topology rationale.
+
+services:
+  postgis:
+    ports: !reset []
+
+  redis:
+    ports: !reset []
+
+  minio:
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    ports: !reset []
+
+  minio-init:
+    image: minio/mc:RELEASE.2025-08-13T08-35-41Z
+
+  api:
+    environment:
+      CORS_ORIGINS: '["https://${DEPLOY_HOSTNAME}"]'
+      TITILER_BASE_URL: /tiles
+    ports: !reset []
+
+  # Replace the Vite dev server with the Caddy image that serves the built SPA
+  # AND reverse-proxies /api + /tiles. Build context is the repo root so the
+  # Dockerfile can pull infra/caddy/Caddyfile.
+  web:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile.prod
+      args:
+        VITE_API_BASE: /api
+    image: terrabean-web:prod
+    environment:
+      DEPLOY_HOSTNAME: ${DEPLOY_HOSTNAME}
+    command: caddy run --config /etc/caddy/Caddyfile --adapter caddyfile
+    ports: !override
+      - "80:80"
+      - "443:443"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+      titiler:
+        condition: service_healthy
+
+  titiler:
+    image: ghcr.io/developmentseed/titiler:2.0.2
+    environment:
+      CORS_ALLOW_ORIGINS: https://${DEPLOY_HOSTNAME}
+    ports: !reset []
+
+volumes:
+  caddy_data:
+  caddy_config:

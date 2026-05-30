@@ -1,0 +1,33 @@
+# TerraBean single-origin reverse proxy (FR-13 prod topology).
+#
+# Caddy serves the built SPA AND proxies the api + titiler upstreams so the
+# browser hits ONE origin -- collapses CORS to nothing and lets the backend
+# return relative tile URLs (TITILER_BASE_URL=/tiles). See:
+#   - docs/adr/0008-titiler-raster-overlays.md
+#   - docs/adr/0009-gcp-single-vm-demo-deployment.md
+#   - docs/04-architecture.md (production topology block)
+#
+# DEPLOY_HOSTNAME is the public host. Set it to your real domain for prod (Caddy
+# auto-provisions a Let's Encrypt cert) or to ":80" for a local plain-HTTP test
+# (`DEPLOY_HOSTNAME=:80 docker compose -f docker-compose.yml -f docker-compose.prod.yml up`).
+
+{$DEPLOY_HOSTNAME} {
+	encode zstd gzip
+
+	# Strip the /api prefix so FastAPI sees its native routes (/health, /assess, /overlays...).
+	handle_path /api/* {
+		reverse_proxy api:8000
+	}
+
+	# TiTiler keeps its native /cog/tiles/... layout; we just strip /tiles.
+	handle_path /tiles/* {
+		reverse_proxy titiler:80
+	}
+
+	# Everything else is the SPA. SPA fallback so deep links work.
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}

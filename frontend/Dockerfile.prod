@@ -1,0 +1,28 @@
+# Production build for the TerraBean web UI.
+#
+# Stage 1 builds a static SPA against the same Vite config used for `npm run dev`,
+# baking VITE_API_BASE in at build time so the same image works for any deploy
+# (override by passing --build-arg VITE_API_BASE=/api). Stage 2 is a tiny caddy
+# image that BOTH serves the SPA AND reverse-proxies /api/* + /tiles/* to the
+# compose-network services -- single origin so the browser never deals with CORS
+# (see docs/adr/0008-titiler-raster-overlays.md and docs/04-architecture.md).
+
+# Build context = repo root (so we can pull in infra/caddy/Caddyfile).
+# In docker-compose.prod.yml the service block sets:
+#   build: { context: ., dockerfile: frontend/Dockerfile.prod }
+
+ARG VITE_API_BASE=/api
+
+FROM node:24-slim AS build
+WORKDIR /app
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
+COPY frontend/ .
+ARG VITE_API_BASE
+ENV VITE_API_BASE=${VITE_API_BASE}
+RUN npm run build
+
+FROM caddy:2-alpine AS runtime
+COPY --from=build /app/dist /srv
+COPY infra/caddy/Caddyfile /etc/caddy/Caddyfile
+EXPOSE 80 443

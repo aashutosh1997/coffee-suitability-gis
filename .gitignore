@@ -2,6 +2,7 @@
 .env
 .env.*
 !.env.example
+!.env.prod.example
 
 # --- Large geospatial data (NEVER commit; lives in MinIO/object storage) ---
 *.tif
