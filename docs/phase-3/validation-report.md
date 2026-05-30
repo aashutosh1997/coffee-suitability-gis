@@ -98,14 +98,74 @@ biophysical model to labels that encode non-biophysical causes, and chasing this
 agreement % upward would be the overfitting trap (**R-OVERFIT**). The win is qualitative: the model
 can now **express** marginal suitability.
 
-## 6. Sign-off (synthetic — provisional)
+## 6. Real-CHELSA re-run (2026-05-30 — `arabica-2026.1` and `arabica-2026.2`)
 
-The validation **mechanism** is accepted: the harness ingests labelled plots, runs the pinned
-config, and produces a reproducible confusion matrix + agreement % + diagnosis, and the
-version-bumped tuning loop works (2026.1 → 2026.2, both reproducible from committed configs).
+Following the synthetic baseline above, the climate datasets were re-seeded from **real
+CHELSA V2.1 (1981–2010 climatology)** via `/vsicurl/` per [ADR-0007](../adr/0007-climate-source-worldclim-vs-chelsa.md),
+implemented in [`data-pipelines/ingest/fetch_chelsa.py`](../../data-pipelines/ingest/fetch_chelsa.py).
+The synthetic DEM-derived generator remains as the offline/CI fallback (R-NET).
+**Same harness, same synthetic plot set, same configs — only the climate input changed.**
+The generated machine reports at the top of this document
+([`validation-2026.1.md`](validation-2026.1.md) / [`.json`](validation-2026.1.json),
+[`validation-2026.2.md`](validation-2026.2.md) / [`.json`](validation-2026.2.json)) now
+reflect this real-CHELSA run.
 
-**The ≥80% accuracy gate remains OPEN.** It cannot be closed against synthetic data. Closing it
-requires the cooperative's real labelled plots (≥30–50, stratified per
-[ground-truth-plan §3](../phase-0/ground-truth-plan.md)) and a **senior agronomist's sign-off** —
-the launch-gating critical path (**R-GT**). When that data lands, re-run `make validate` against it
-(no code change needed) and iterate the config versions until ≥80% is met and stable.
+**Headline:**
+
+| Config | Synthetic agreement | **CHELSA agreement** | Δ |
+|---|---|---|---|
+| 2026.1 | 18/40 = 45.0% | **17/40 = 42.5%** | −2.5 pp |
+| 2026.2 | 19/40 = 47.5% | **18/40 = 45.0%** | −2.5 pp |
+
+**The headline % moved less than the diagnosis quality did — which is the real win.**
+Limiting-factor tally in 2026.1 disagreements:
+
+| Limiting factor | Synthetic | **CHELSA** |
+|---|---|---|
+| slope | 10 | 8 |
+| altitude | 8 | 7 |
+| **precipitation** | **0** | **6** |
+| temperature | 0 | 1 |
+| shading | 4 | 1 |
+
+**Precipitation is now a real limiting factor on 6 Gulmi plots.** Why: real CHELSA puts
+Gulmi annual precip at ~3,294 mm — above the model's 3,000 mm "unsuitable" threshold (the
+0.1 floor), so plots that were uniformly optimal under the smooth synthetic climate now
+read as too-wet, with disease-pressure agronomy implications. This is exactly the kind of
+real signal the synthetic generator could not produce.
+
+**CHELSA 2026.2 confusion matrix** (rows = observed, columns = mapped prediction):
+
+| observed \ predicted | thriving | struggling | failed |
+|---|---|---|---|
+| **thriving** | 12 | 2 | 1 |
+| **struggling** | 8 | **2** | 2 |
+| **failed** | 6 | **3** | 4 |
+
+The S3 "struggling" column now carries **5 plots** (vs 1 under synthetic 2026.2, vs 0
+under synthetic 2026.1). Predicted-class distribution under CHELSA 2026.2: S1=11, S2=15,
+**S3=7**, N=7 — the model now expresses all four FAO suitability classes, which the
+synthetic climate prevented. Off-diagonal disagreements are now concentrated in the
+"by-one-class" cells (thriving↔struggling, struggling↔failed) rather than the
+extreme thriving↔failed swings that dominated under synthetic.
+
+**Honest reading:** the remaining ~55% of disagreements are largely the deliberate
+non-biophysical noise baked into the synthetic labels (poor management, young plants,
+exceptional microclimate). Real CHELSA fixes the *climate input* but not the *labels* —
+the agreement % stays a mechanism-quality signal (R-SYNTH), not an accuracy claim. The
+real test still requires the cooperative's labelled plots.
+
+## 7. Sign-off (synthetic — provisional)
+
+The validation **mechanism** is accepted: the harness ingests labelled plots, runs the
+pinned config against real CHELSA + DEM, and produces a reproducible confusion matrix +
+agreement % + per-factor diagnosis. The version-bumped tuning loop works (2026.1 →
+2026.2, both reproducible from committed configs). The climate input is now real (ADR-0007
+implemented).
+
+**The ≥80% accuracy gate remains OPEN.** It cannot be closed against synthetic labels.
+Closing it requires the cooperative's real labelled plots (≥30–50, stratified per
+[ground-truth-plan §3](../phase-0/ground-truth-plan.md)) and a **senior agronomist's
+sign-off** — the launch-gating critical path (**R-GT**). When that data lands, re-run
+`make validate` against it (no code change needed) and iterate the config versions until
+≥80% is met and stable.

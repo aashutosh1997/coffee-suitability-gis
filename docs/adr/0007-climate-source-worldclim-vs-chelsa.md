@@ -2,11 +2,15 @@
 
 ## Status
 
-Accepted (pending final confirmation from the Phase 0 data spike)
+Accepted (implemented 2026-05-30 — real CHELSA V2.1 ingest in
+[`data-pipelines/ingest/fetch_chelsa.py`](../../data-pipelines/ingest/fetch_chelsa.py);
+synthetic DEM-derived generator retained as offline/CI fallback per R-NET; WorldClim
+fallback per ADR-0007 still deferred. First Nepal-wide CHELSA re-run captured in
+[`docs/phase-3/validation-report.md`](../phase-3/validation-report.md) §6.)
 
 ## Date
 
-2026-05-28
+2026-05-28 (decided); 2026-05-30 (implemented)
 
 ## Deciders
 
