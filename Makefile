@@ -40,8 +40,8 @@ spike-terrain: ## Run the terrain-shading benchmark on the committed Nepal fixtu
 seed-pilot-data: ## Seed the pilot DEM: fetch Copernicus (fixture fallback) -> COG -> MinIO -> provenance
 	cd data-pipelines && uv run python -m ingest.seed_pilot --version 2026.1 $(SEED_ARGS)
 
-seed-nepal: ## Seed ALL of Nepal: real Copernicus GLO-90 DEM + derived climate -> MinIO -> provenance
-	cd data-pipelines && uv run python -m ingest.seed_pilot --version 2026.1 --region nepal $(SEED_ARGS)
+seed-nepal: ## Seed ALL of Nepal: real Copernicus GLO-90 DEM + climate (CLIMATE_SOURCE=synthetic|real, default synthetic)
+	cd data-pipelines && uv run python -m ingest.seed_pilot --version 2026.1 --region nepal --climate-source $(or $(CLIMATE_SOURCE),synthetic) $(SEED_ARGS)
 
 validate: ## Validate the model against a ground-truth CSV (stack must be up + seeded)
 	$(COMPOSE) exec api python -m app.validation.run \
