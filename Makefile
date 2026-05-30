@@ -1,7 +1,12 @@
 .DEFAULT_GOAL := help
 COMPOSE := docker compose
+COMPOSE_PROD := docker compose -f docker-compose.yml -f docker-compose.prod.yml
 
-.PHONY: help up down logs ps test test-backend test-frontend lint lint-backend lint-frontend spike-terrain seed-pilot-data seed-nepal validate clean
+# GCP VM defaults (override via env, e.g. ZONE=asia-southeast1-b make vm-start).
+INSTANCE_NAME ?= terrabean-demo
+ZONE ?= asia-southeast1-a
+
+.PHONY: help up down logs ps test test-backend test-frontend lint lint-backend lint-frontend spike-terrain seed-pilot-data seed-nepal validate clean deploy deploy-seed deploy-logs deploy-down vm-start vm-stop vm-ssh
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
@@ -54,3 +59,30 @@ validate: ## Validate the model against a ground-truth CSV (stack must be up + s
 
 clean: ## Remove the stack + named volumes
 	$(COMPOSE) down -v
+
+# --- GCP demo deployment (single VM, Compose + Caddy) -------------------------
+# See infra/gcp/README.md and docs/adr/0009-gcp-single-vm-demo-deployment.md.
+
+deploy: ## On the VM: build + (re)start the production stack
+	$(COMPOSE_PROD) up -d --build
+
+deploy-down: ## On the VM: stop the production stack (data volumes survive)
+	$(COMPOSE_PROD) down
+
+deploy-logs: ## On the VM: tail production logs
+	$(COMPOSE_PROD) logs -f
+
+deploy-seed: ## On the VM: one-time seed of the pilot DEM + climate into MinIO + PostGIS
+	$(COMPOSE_PROD) run --rm api python -m data_pipelines.ingest.seed_pilot --version 2026.1 || \
+		(echo "fallback: running seed from a host-side data-pipelines venv"; \
+		 cd data-pipelines && uv run python -m ingest.seed_pilot --version 2026.1)
+
+vm-start: ## From your laptop: start the GCP VM
+	gcloud compute instances start $(INSTANCE_NAME) --zone $(ZONE)
+	@gcloud compute instances describe $(INSTANCE_NAME) --zone $(ZONE) --format='value(networkInterfaces[0].accessConfigs[0].natIP)' | awk '{print "External IP:",$$1," (update your A record if it changed)"}'
+
+vm-stop: ## From your laptop: stop the GCP VM (compute charges pause, ~95% saving)
+	gcloud compute instances stop $(INSTANCE_NAME) --zone $(ZONE)
+
+vm-ssh: ## From your laptop: SSH into the GCP VM
+	gcloud compute ssh $(INSTANCE_NAME) --zone $(ZONE)
