@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := help
 COMPOSE := docker compose
 
-.PHONY: help up down logs ps test test-backend test-frontend lint lint-backend lint-frontend spike-terrain seed-pilot-data seed-nepal clean
+.PHONY: help up down logs ps test test-backend test-frontend lint lint-backend lint-frontend spike-terrain seed-pilot-data seed-nepal validate clean
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
@@ -42,6 +42,15 @@ seed-pilot-data: ## Seed the pilot DEM: fetch Copernicus (fixture fallback) -> C
 
 seed-nepal: ## Seed ALL of Nepal: real Copernicus GLO-90 DEM + derived climate -> MinIO -> provenance
 	cd data-pipelines && uv run python -m ingest.seed_pilot --version 2026.1 --region nepal $(SEED_ARGS)
+
+validate: ## Validate the model against a ground-truth CSV (stack must be up + seeded)
+	$(COMPOSE) exec api python -m app.validation.run \
+		--plots /config/ground-truth/$(or $(PLOTS),synthetic_plots.csv) \
+		--config /config/suitability/arabica-$(or $(CONFIG),2026.1).yaml \
+		--out /tmp/phase3
+	@mkdir -p docs/phase-3
+	@$(COMPOSE) cp api:/tmp/phase3/. docs/phase-3/
+	@echo "validate: reports copied to docs/phase-3/"
 
 clean: ## Remove the stack + named volumes
 	$(COMPOSE) down -v
