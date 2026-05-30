@@ -115,7 +115,8 @@ def _build_layer(spec: _OverlaySpec) -> OverlayLayer | None:
     source_url = _tiler_source_url(prov["object_key"])
     lo, hi = spec.rescale
     base = settings.titiler_base_url.rstrip("/")
-    # TiTiler 2.x routes tiles under /{collection}/tiles/{tileMatrixSetId}/{z}/{x}/{y}.{ext}.
+    # TiTiler 2.x routes tiles under
+    # /{collection}/tiles/{tileMatrixSetId}/{z}/{x}/{y}.{ext}.
     # WebMercatorQuad is the standard slippy-map TMS that MapLibre expects.
     template = (
         f"{base}/cog/tiles/WebMercatorQuad/{{z}}/{{x}}/{{y}}.png"
