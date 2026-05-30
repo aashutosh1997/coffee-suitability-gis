@@ -17,6 +17,11 @@ class Settings(BaseSettings):
     minio_root_user: str = "terrabean"
     minio_root_password: str = "change-me-locally"
 
+    # TiTiler base URL used by the /overlays endpoint to build raster tile URLs the
+    # browser fetches directly (FR-13). Dev: docker-compose `titiler` on :8001;
+    # production fronts both api and titiler behind nginx so this becomes a path.
+    titiler_base_url: str = "http://localhost:8001"
+
     # Dataset names the engine resolves against dataset_provenance (FR-15). DEM is
     # terrain; the three climate datasets arrive in Phase 2 (ADR-0007).
     dem_dataset_name: str = "copernicus-glo30"
