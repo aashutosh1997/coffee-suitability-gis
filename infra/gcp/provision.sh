@@ -28,10 +28,17 @@ fi
 
 echo "Provisioning ${INSTANCE_NAME} in ${PROJECT}/${ZONE} (${MACHINE_TYPE}, ${DISK_SIZE_GB} GB pd-standard)."
 
+# Required APIs. Doing this up front avoids the interactive "API not enabled,
+# enable and retry? (y/N)" prompt that gcloud throws on the first compute call --
+# the script can't see that prompt cleanly through a pipe and would hang.
+REQUIRED_SERVICES=(compute.googleapis.com)
+echo "Enabling required APIs: ${REQUIRED_SERVICES[*]}"
+gcloud services enable "${REQUIRED_SERVICES[@]}" --quiet
+
 # OS Login = passwordless SSH via Google identity, no SSH key sprawl.
 gcloud compute project-info add-metadata \
 	--metadata enable-oslogin=TRUE \
-	--quiet 2>&1 | tail -1 || true
+	--quiet
 
 # Firewall: open 80 + 443 to anything tagged http-server / https-server.
 if ! gcloud compute firewall-rules describe "${FIREWALL_RULE}" >/dev/null 2>&1; then

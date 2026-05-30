@@ -10,9 +10,12 @@ Stop the VM overnight via `make vm-stop` and that drops to ~$6/month → ~48 mon
 ## Prerequisites
 
 - `gcloud` CLI installed and authenticated (`gcloud auth login`).
-- A GCP project with billing enabled. Free trial credits qualify.
-- Required APIs enabled: `gcloud services enable compute.googleapis.com`.
+- A GCP project with **billing enabled** (free trial credits qualify) — set as
+  the active project: `gcloud config set project <PROJECT_ID>`.
 - A domain you control. Caddy will auto-provision a Let's Encrypt cert for it.
+
+`provision.sh` enables `compute.googleapis.com` for you on first run; you do
+not need to enable it manually.
 
 ## Deploy
 
