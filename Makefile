@@ -73,9 +73,14 @@ deploy-logs: ## On the VM: tail production logs
 	$(COMPOSE_PROD) logs -f
 
 deploy-seed: ## On the VM: one-time seed of the pilot DEM + climate into MinIO + PostGIS
-	$(COMPOSE_PROD) run --rm api python -m data_pipelines.ingest.seed_pilot --version 2026.1 || \
-		(echo "fallback: running seed from a host-side data-pipelines venv"; \
-		 cd data-pipelines && uv run python -m ingest.seed_pilot --version 2026.1)
+	# Runs inside the api container (already has the [geo] extras: rasterio,
+	# rio-cogeo, geopandas, etc) with data-pipelines/ bind-mounted. SEED_ARGS
+	# overrides defaults, e.g. `make deploy-seed SEED_ARGS="--region nepal --climate-source real"`.
+	$(COMPOSE_PROD) run --rm \
+		-v $(CURDIR)/data-pipelines:/data-pipelines \
+		-w /data-pipelines \
+		-e PYTHONPATH=/data-pipelines \
+		api python -m ingest.seed_pilot --version 2026.1 $(SEED_ARGS)
 
 vm-start: ## From your laptop: start the GCP VM
 	gcloud compute instances start $(INSTANCE_NAME) --zone $(ZONE)

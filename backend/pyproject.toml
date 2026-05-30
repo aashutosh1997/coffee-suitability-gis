@@ -32,6 +32,10 @@ geo = [
     "rasterstats>=0.19",
     "rio-cogeo>=5.0",
     "pvlib>=0.11",
+    # boto3 lets `make deploy-seed` reuse the api image to push COGs into MinIO
+    # (data-pipelines/ingest/push_minio.py imports it). The api itself reads
+    # MinIO via /vsis3 GDAL and never imports boto3 at runtime.
+    "boto3>=1.34,<2",
     # richdem / WhiteboxTools / exactextract are evaluated by the terrain spike as
     # production options but kept OUT of this extra: they need C/C++ compilation and
     # are flaky to install via wheels. The spike uses them if importable, else NumPy.
