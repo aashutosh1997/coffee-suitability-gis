@@ -10,10 +10,13 @@ import {
   type Geometry,
 } from "./api/client";
 import { AOIInput } from "./components/AOIInput";
+import { AOILayer } from "./components/AOILayer";
 import { HealthBadge } from "./components/HealthBadge";
 import { PilotMap } from "./components/PilotMap";
+import { PrintReport } from "./components/PrintReport";
 import { RecentClimate } from "./components/RecentClimate";
 import { ResultPanel } from "./components/ResultPanel";
+import { aoiBounds } from "./utils/geo";
 
 export default function App() {
   const [map, setMap] = useState<maplibregl.Map | null>(null);
@@ -21,6 +24,7 @@ export default function App() {
   const [jobId, setJobId] = useState<string | null>(null);
   const [result, setResult] = useState<AssessResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [printSnapshot, setPrintSnapshot] = useState<string | null>(null);
 
   const assess = useAssess();
   const job = useAssessJob(jobId);
@@ -52,6 +56,46 @@ export default function App() {
   const busy = assess.isPending || !!jobId;
   const point = geometry?.type === "Point" ? (geometry.coordinates as number[]) : null;
 
+  const printReport = async () => {
+    if (!result || !geometry || !map) {
+      window.print();
+      return;
+    }
+    const camera = {
+      center: map.getCenter(),
+      zoom: map.getZoom(),
+      bearing: map.getBearing(),
+      pitch: map.getPitch(),
+    };
+    const bounds = aoiBounds(geometry);
+    if (geometry.type === "Polygon" && bounds) {
+      const [w, s, e, n] = bounds;
+      map.fitBounds(
+        [
+          [w, s],
+          [e, n],
+        ],
+        { padding: 50, duration: 0 },
+      );
+    } else if (geometry.type === "Point") {
+      const [lon, lat] = geometry.coordinates as number[];
+      map.jumpTo({ center: [lon, lat], zoom: 14 });
+    }
+    await new Promise<void>((resolve) => map.once("idle", () => resolve()));
+    let snapshot: string | null = null;
+    try {
+      snapshot = map.getCanvas().toDataURL("image/png");
+    } catch (err) {
+      // tainted-canvas (cross-origin tiles without ACAO) — print without the image.
+      console.warn("Map snapshot unavailable for print", err);
+    }
+    setPrintSnapshot(snapshot);
+    // Let React paint the snapshot before opening the print dialog.
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    window.print();
+    map.jumpTo(camera);
+  };
+
   return (
     <AppShell header={{ height: 56 }} padding="md">
       <AppShell.Header
@@ -68,7 +112,7 @@ export default function App() {
             size="xs"
             variant="default"
             disabled={!result}
-            onClick={() => window.print()}
+            onClick={() => void printReport()}
           >
             Print / Save as PDF
           </Button>
@@ -87,6 +131,7 @@ export default function App() {
         >
           <div className="no-print" style={{ position: "relative" }}>
             <PilotMap onMapReady={onMapReady} />
+            <AOILayer map={map} geometry={geometry} />
             <Paper
               shadow="sm"
               p="sm"
@@ -102,6 +147,7 @@ export default function App() {
           </div>
           <Paper className="print-area" shadow="sm" p="md" style={{ overflow: "auto" }}>
             <Stack gap="md">
+              <PrintReport geometry={geometry} snapshot={printSnapshot} />
               <div>
                 <Title order={5} mb="sm">
                   Result

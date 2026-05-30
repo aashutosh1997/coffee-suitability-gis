@@ -1,8 +1,14 @@
 /* Browser-print report (FR-16). "Print / Save as PDF" hides the map + controls and lets
    the result panel fill the page, so a field officer gets a clean one-plot report. */
+.print-only {
+  display: none;
+}
 @media print {
   .no-print {
     display: none !important;
+  }
+  .print-only {
+    display: block !important;
   }
   .print-full {
     display: block !important;
@@ -12,7 +18,17 @@
     overflow: visible !important;
     height: auto !important;
   }
+  .print-aoi-map {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    max-height: 60vh;
+    break-inside: avoid;
+  }
   body {
     background: #fff;
+  }
+  @page {
+    margin: 12mm;
   }
 }
